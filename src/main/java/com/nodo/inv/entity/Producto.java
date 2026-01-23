@@ -18,7 +18,7 @@ public class Producto {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "emp_ideregistro", nullable = false)
-    private Empresa empresa; // Aislamos los productos por billar/empresa
+    private Empresa empresa; // Amarra el producto a "Billares Diego"
 
     @Column(name = "pro_codigo", nullable = false, length = 50)
     private String codigo; // SKU o Código de barras
@@ -26,25 +26,16 @@ public class Producto {
     @Column(name = "pro_nombre", nullable = false, length = 200)
     private String nombre;
 
-    @Column(name = "pro_descripcion", length = 500)
-    private String descripcion;
-
-    // --- RELACIONES DINÁMICAS (Usando tu motor de parámetros) ---
-
+    // --- RELACIONES CON TU MOTOR DE PARÁMETROS ---
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "uni_categoria")
-    private Unidad categoria; // Ej: "Bebidas", "Snacks", "Alquiler Mesas"
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "uni_marca")
-    private Unidad marca; // Ej: "Heineken", "Postobon"
+    private Unidad categoria; // Ej: "Cervezas" (Vinculado a Unidad/Estructura)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "uni_medida")
-    private Unidad unidadMedida; // Ej: "Unidad", "Sixpack", "Hora"
+    private Unidad unidadMedida; // Ej: "Botella 330ml", "Unidad"
 
     // --- DATOS FINANCIEROS ---
-
     @Column(name = "pro_preciocosto", precision = 18, scale = 2)
     private BigDecimal precioCosto;
 
@@ -52,8 +43,11 @@ public class Producto {
     private BigDecimal precioVenta;
 
     @Column(name = "pro_stockminimo")
-    private Integer stockMinimo;
+    private Integer stockMinimo; // Alerta cuando Diego se esté quedando sin producto
 
     @Column(name = "pro_estado")
-    private Boolean activo; // Para descontinuar productos
+    private Boolean activo;
+    
+    @Column(name = "pro_stockactual")
+    private Integer stockActual;
 }

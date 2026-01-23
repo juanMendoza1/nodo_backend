@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -25,14 +24,20 @@ public class DataInitializer implements CommandLineRunner {
     private final EmpresaProgramaRepository empresaProgramaRepository;
     private final PermisoRepository permisoRepository;
     private final RolPermisoRepository rolPermisoRepository;
-    private final EmpresaTerceroRepository empresaTerceroRepository; // Inyectado para los ejemplos
+    private final EmpresaTerceroRepository empresaTerceroRepository;
+    private final GiroNegocioRepository giroNegocioRepository; // Nueva dependencia
     private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
     public void run(String... args) throws Exception {
         
-        // 1. ROLES Y PERMISOS BASE
+        // 1. CREACIÓN DE GIROS DE NEGOCIO (VERTICALIZACIÓN)
+        GiroNegocio giroBillar = checkAndCreateGiro("RESTAURANTE / BILLAR", "REST_BILL", "ARENA_DUELO");
+        GiroNegocio giroZapa = checkAndCreateGiro("ZAPATERÍA / RETAIL", "ZAPA", "POS_ESTANDAR");
+        GiroNegocio giroSuper = checkAndCreateGiro("SUPERMERCADO", "SUPER_MARKET", "LECTOR_BARRAS");
+
+        // 2. ROLES Y PERMISOS BASE
         Rol superRol = checkAndCreateRol("SUPER");
         Rol adminRol = checkAndCreateRol("ADMIN");
         
@@ -42,47 +47,60 @@ public class DataInitializer implements CommandLineRunner {
         asignarPermisoARol(adminRol, invView);
         asignarPermisoARol(adminRol, invEdit);
 
-        // 2. PROGRAMAS DEL SISTEMA
+        // 3. PROGRAMAS DEL SISTEMA
         Programa progInv = checkAndCreatePrograma("Inventario", "INV");
 
-        // 3. ESTRUCTURA DE JUAN (SUPER ADMIN / DUEÑO PLATAFORMA)
+        // 4. ESTRUCTURA DE JUAN (SUPER ADMIN / DUEÑO PLATAFORMA)
         if (usuarioRepository.findByLogin("superadmin").isEmpty()) {
             Tercero terJuan = crearTerceroBasic("1010", "Juan", "Admin", "juan@nodo.com");
             Tercero terEmpNodo = crearTerceroBasic("9001", "Sistemas", "Nodo", "contacto@nodo.com");
             
-            Empresa empNodo = crearEmpresaBasic(terEmpNodo, "SISTEMAS NODO");
+            // Juan pertenece a una empresa de tecnología
+            Empresa empNodo = crearEmpresaBasic(terEmpNodo, "SISTEMAS NODO", giroZapa); 
             
             Usuario userJuan = crearUsuarioBasic("superadmin", "admin123", terJuan, empNodo, superRol);
 
-            // EJEMPLO B: Juan crea un Proveedor Global (Visible para todos)
+            // Ejemplo: Juan crea un Proveedor Global
             Tercero provGlobal = crearTerceroBasic("NIT-POSTOBON", "Postobón", "S.A.", "ventas@postobon.com");
             vincularTerceroAEmpresa(provGlobal, null, userJuan, true);
         }
 
-        // 4. ESTRUCTURA DE DIEGO (CLIENTE / DUEÑO DE BILLAR)
+        // 5. ESTRUCTURA DE DIEGO (CLIENTE / DUEÑO DE BILLAR)
         if (usuarioRepository.findByLogin("diego_admin").isEmpty()) {
             Tercero terDiego = crearTerceroBasic("2020", "Diego", "Cliente", "diego@billares.com");
             Tercero terEmpDiego = crearTerceroBasic("8002", "Billares", "Diego", "ventas@billaresdiego.com");
             
-            Empresa empDiego = crearEmpresaBasic(terEmpDiego, "BILLARES DIEGO");
+            // Diego usa el Giro de Negocio de Billar para activar la App Móvil correctamente
+            Empresa empDiego = crearEmpresaBasic(terEmpDiego, "BILLARES DIEGO", giroBillar);
 
             vincularPrograma(empDiego, progInv);
 
             Usuario userDiego = crearUsuarioBasic("diego_admin", "diego123", terDiego, empDiego, adminRol);
 
-            // EJEMPLO A: Diego crea un Proveedor Privado (Solo visible para Billares Diego)
+            // Ejemplo: Diego crea un Proveedor Privado
             Tercero provPrivado = crearTerceroBasic("PROV-LOCAL", "Distribuidora", "El Vecino", "vecino@mail.com");
             vincularTerceroAEmpresa(provPrivado, empDiego, userDiego, false);
             
             System.out.println("-----------------------------------------");
-            System.out.println("🚀 ESCENARIO SaaS CON EMPRESA-TERCERO LISTO");
-            System.out.println("👤 JUAN (SUPER): Proveedor Global 'Postobón' creado.");
-            System.out.println("👤 DIEGO (ADMIN): Proveedor Privado 'El Vecino' creado.");
+            System.out.println("🚀 ESCENARIO SaaS VERTICALIZADO LISTO");
+            System.out.println("🏢 GIRO: REST_BILL (Habilitado para App Móvil)");
+            System.out.println("👤 JUAN (SUPER): Empresa Nodo Creada.");
+            System.out.println("👤 DIEGO (ADMIN): Billares Diego con Giro de Negocio asignado.");
             System.out.println("-----------------------------------------");
         }
     }
 
     // --- MÉTODOS AUXILIARES DE CREACIÓN ---
+
+    private GiroNegocio checkAndCreateGiro(String nom, String cod, String template) {
+        return giroNegocioRepository.findByCodigo(cod).orElseGet(() -> {
+            GiroNegocio gn = new GiroNegocio();
+            gn.setNombre(nom);
+            gn.setCodigo(cod);
+            gn.setTemplateMovil(template);
+            return giroNegocioRepository.save(gn);
+        });
+    }
 
     private void vincularTerceroAEmpresa(Tercero t, Empresa e, Usuario u, boolean global) {
         EmpresaTercero et = new EmpresaTercero();
@@ -104,10 +122,11 @@ public class DataInitializer implements CommandLineRunner {
         return terceroRepository.save(t);
     }
 
-    private Empresa crearEmpresaBasic(Tercero t, String nombre) {
+    private Empresa crearEmpresaBasic(Tercero t, String nombre, GiroNegocio gn) {
         Empresa e = new Empresa();
         e.setTercero(t);
         e.setNombreComercial(nombre);
+        e.setGiroNegocio(gn); // Asignación del Giro
         e.setActivo(true);
         return empresaRepository.save(e);
     }

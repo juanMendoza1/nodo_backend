@@ -16,6 +16,7 @@ public class AuthController {
 
     private final AuthService authService;
 
+    @CrossOrigin(origins = "*")
     @PostMapping("/login")
     public ResponseEntity<LoginResponseDTO> login(
             @RequestBody LoginRequestDTO request) {
