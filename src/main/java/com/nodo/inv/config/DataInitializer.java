@@ -25,7 +25,10 @@ public class DataInitializer implements CommandLineRunner {
     private final PermisoRepository permisoRepository;
     private final RolPermisoRepository rolPermisoRepository;
     private final EmpresaTerceroRepository empresaTerceroRepository;
-    private final GiroNegocioRepository giroNegocioRepository; // Nueva dependencia
+    private final GiroNegocioRepository giroNegocioRepository;
+    private final SuscripcionProgramaRepository suscripcionProgramaRepository;
+    private final TerminalDispositivoRepository terminalDispositivoRepository;
+    private final UsuarioOperativoRepository usuarioOperativoRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -33,6 +36,7 @@ public class DataInitializer implements CommandLineRunner {
     public void run(String... args) throws Exception {
         
         // 1. CREACIÓN DE GIROS DE NEGOCIO (VERTICALIZACIÓN)
+        // Define qué interfaz y lógica cargará la tablet según el negocio
         GiroNegocio giroBillar = checkAndCreateGiro("RESTAURANTE / BILLAR", "REST_BILL", "ARENA_DUELO");
         GiroNegocio giroZapa = checkAndCreateGiro("ZAPATERÍA / RETAIL", "ZAPA", "POS_ESTANDAR");
         GiroNegocio giroSuper = checkAndCreateGiro("SUPERMERCADO", "SUPER_MARKET", "LECTOR_BARRAS");
@@ -40,12 +44,14 @@ public class DataInitializer implements CommandLineRunner {
         // 2. ROLES Y PERMISOS BASE
         Rol superRol = checkAndCreateRol("SUPER");
         Rol adminRol = checkAndCreateRol("ADMIN");
+        Rol opRol = checkAndCreateRol("OPERATIVO");
         
         Permiso invView = checkAndCreatePermiso("INV_VIEW", "Ver Inventario");
         Permiso invEdit = checkAndCreatePermiso("INV_EDIT", "Editar Inventario");
 
         asignarPermisoARol(adminRol, invView);
         asignarPermisoARol(adminRol, invEdit);
+        asignarPermisoARol(opRol, invView);
 
         // 3. PROGRAMAS DEL SISTEMA
         Programa progInv = checkAndCreatePrograma("Inventario", "INV");
@@ -55,12 +61,10 @@ public class DataInitializer implements CommandLineRunner {
             Tercero terJuan = crearTerceroBasic("1010", "Juan", "Admin", "juan@nodo.com");
             Tercero terEmpNodo = crearTerceroBasic("9001", "Sistemas", "Nodo", "contacto@nodo.com");
             
-            // Juan pertenece a una empresa de tecnología
-            Empresa empNodo = crearEmpresaBasic(terEmpNodo, "SISTEMAS NODO", giroZapa); 
+            Empresa empNodo = crearEmpresaBasic(terEmpNodo, "SISTEMAS NODO", giroZapa);
             
             Usuario userJuan = crearUsuarioBasic("superadmin", "admin123", terJuan, empNodo, superRol);
 
-            // Ejemplo: Juan crea un Proveedor Global
             Tercero provGlobal = crearTerceroBasic("NIT-POSTOBON", "Postobón", "S.A.", "ventas@postobon.com");
             vincularTerceroAEmpresa(provGlobal, null, userJuan, true);
         }
@@ -70,27 +74,52 @@ public class DataInitializer implements CommandLineRunner {
             Tercero terDiego = crearTerceroBasic("2020", "Diego", "Cliente", "diego@billares.com");
             Tercero terEmpDiego = crearTerceroBasic("8002", "Billares", "Diego", "ventas@billaresdiego.com");
             
-            // Diego usa el Giro de Negocio de Billar para activar la App Móvil correctamente
             Empresa empDiego = crearEmpresaBasic(terEmpDiego, "BILLARES DIEGO", giroBillar);
-
             vincularPrograma(empDiego, progInv);
 
             Usuario userDiego = crearUsuarioBasic("diego_admin", "diego123", terDiego, empDiego, adminRol);
 
-            // Ejemplo: Diego crea un Proveedor Privado
-            Tercero provPrivado = crearTerceroBasic("PROV-LOCAL", "Distribuidora", "El Vecino", "vecino@mail.com");
-            vincularTerceroAEmpresa(provPrivado, empDiego, userDiego, false);
-            
+            // 6. CONTROL DE DISPOSITIVOS (SUSCRIPCIÓN)
+            // Controla el cupo máximo de tablets autorizadas para la empresa
+            SuscripcionPrograma subDiego = new SuscripcionPrograma();
+            subDiego.setEmpresa(empDiego);
+            subDiego.setPrograma(progInv);
+            subDiego.setMaxDispositivos(3);
+            subDiego.setDispositivosActivos(1);
+            subDiego.setActivo(true);
+            suscripcionProgramaRepository.save(subDiego);
+
+            // Registro de la primera Terminal/Tablet física
+            TerminalDispositivo tablet1 = new TerminalDispositivo();
+            tablet1.setSuscripcion(subDiego);
+            tablet1.setUuidHardware("ABC-123-XYZ");
+            tablet1.setAlias("Tablet Barra Principal");
+            tablet1.setFechaRegistro(LocalDateTime.now());
+            tablet1.setBloqueado(false);
+            terminalDispositivoRepository.save(tablet1);
+
+            // 7. CREACIÓN DE SLOTS OPERATIVOS (USUARIOS PARA TABLET)
+            // Usuarios reciclables que no requieren registro legal completo
+            UsuarioOperativo op1 = new UsuarioOperativo();
+            op1.setEmpresa(empDiego);
+            op1.setAlias("MESERO 1");
+            op1.setLogin("M1_DIEGO");
+            op1.setPassword(passwordEncoder.encode("1234"));
+            op1.setEstado(EstadoUsuario.ACTIVO);
+            op1.setRol(opRol);
+            op1.setFechaCreacion(LocalDateTime.now());
+            usuarioOperativoRepository.save(op1);
+
             System.out.println("-----------------------------------------");
             System.out.println("🚀 ESCENARIO SaaS VERTICALIZADO LISTO");
-            System.out.println("🏢 GIRO: REST_BILL (Habilitado para App Móvil)");
-            System.out.println("👤 JUAN (SUPER): Empresa Nodo Creada.");
-            System.out.println("👤 DIEGO (ADMIN): Billares Diego con Giro de Negocio asignado.");
+            System.out.println("🏢 GIRO: REST_BILL (Mesa/Duelo activado)");
+            System.out.println("📱 TERMINALES: 1 de 3 activadas (UUID: ABC-123-XYZ)");
+            System.out.println("👤 SLOT: Mesero 1 listo para login en tablet.");
             System.out.println("-----------------------------------------");
         }
     }
 
-    // --- MÉTODOS AUXILIARES DE CREACIÓN ---
+    // --- MÉTODOS AUXILIARES ---
 
     private GiroNegocio checkAndCreateGiro(String nom, String cod, String template) {
         return giroNegocioRepository.findByCodigo(cod).orElseGet(() -> {
@@ -126,7 +155,7 @@ public class DataInitializer implements CommandLineRunner {
         Empresa e = new Empresa();
         e.setTercero(t);
         e.setNombreComercial(nombre);
-        e.setGiroNegocio(gn); // Asignación del Giro
+        e.setGiroNegocio(gn);
         e.setActivo(true);
         return empresaRepository.save(e);
     }
