@@ -14,10 +14,10 @@ import lombok.ToString;
 @AllArgsConstructor // Útil para tus propios mapeos
 @Entity
 @Table(
-    name = "rol_permiso",
+    name = "rol_permiso"/*,
     uniqueConstraints = {
         @UniqueConstraint(columnNames = {"rol_ideregistro", "per_ideregistro"})
-    }
+    }*/
 )
 public class RolPermiso {
 

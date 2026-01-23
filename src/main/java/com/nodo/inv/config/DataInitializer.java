@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
-
+/*
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
@@ -80,9 +80,7 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
-    /**
-     * Método auxiliar para evitar errores de tipos en el save
-     */
+
     private Rol checkAndCreateRol(String nombreRol) {
         Optional<Rol> rolOpt = rolRepository.findByNombre(nombreRol);
         if (rolOpt.isPresent()) {
@@ -93,4 +91,4 @@ public class DataInitializer implements CommandLineRunner {
             return rolRepository.save(nuevoRol);
         }
     }
-}
+}*/

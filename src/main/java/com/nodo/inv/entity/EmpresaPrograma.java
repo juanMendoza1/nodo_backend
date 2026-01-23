@@ -9,9 +9,9 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "empresa_programa", uniqueConstraints = {
+@Table(name = "empresa_programa" /*, uniqueConstraints = {
     @UniqueConstraint(columnNames = {"emp_ideregistro", "pro_ideregistro"})
-})
+}*/)
 public class EmpresaPrograma {
 
     @Id
@@ -32,4 +32,7 @@ public class EmpresaPrograma {
 
     @Column(name = "ep_estado")
     private Boolean estado; // Para suspender un servicio específico a una empresa
+    
+    @Column(name = "ep_observacion")
+    private String observacion;
 }
