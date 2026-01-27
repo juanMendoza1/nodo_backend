@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.nodo.inv.Utils.EstadoUsuario;
 
 @Data
@@ -36,6 +37,7 @@ public class Usuario {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "emp_ideregistro", nullable = false)
+    @JsonIgnore
     private Empresa empresa;
 
     // getters y setters

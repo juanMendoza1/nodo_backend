@@ -13,6 +13,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/terminales")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 public class TerminalController {
 
     private final TerminalService terminalService;
@@ -87,24 +88,34 @@ public class TerminalController {
     @PostMapping("/vincular-qr")
     public ResponseEntity<?> vincular(@RequestBody Map<String, Object> payload) {
         try {
-            // Extraemos el token y los datos del dispositivo del JSON enviado por la tablet
+            // Validación de seguridad antes de usar .toString()
+            if (payload == null || !payload.containsKey("token") || payload.get("token") == null) {
+                return ResponseEntity.badRequest().body("Error: El token es obligatorio");
+            }
+
             String token = payload.get("token").toString();
             
+            // Lo mismo para el uuidHardware
+            if (payload.get("uuidHardware") == null) {
+                return ResponseEntity.badRequest().body("Error: UUID de hardware no recibido");
+            }
+
             TerminalDispositivo dispositivo = new TerminalDispositivo();
             dispositivo.setUuidHardware(payload.get("uuidHardware").toString());
-            dispositivo.setAlias(payload.get("alias").toString());
-            dispositivo.setMarca(payload.get("marca") != null ? payload.get("marca").toString() : "Genérica");
-            dispositivo.setModelo(payload.get("modelo") != null ? payload.get("modelo").toString() : "Tablet");
             
-            // Llamamos al servicio para completar la vinculación
+            // Para alias, marca y modelo usa un valor por defecto si son nulos
+            dispositivo.setAlias(payload.getOrDefault("alias", "Terminal Desconocida").toString());
+            dispositivo.setMarca(payload.getOrDefault("marca", "Genérica").toString());
+            dispositivo.setModelo(payload.getOrDefault("modelo", "Tablet").toString());
+
             TerminalDispositivo vinculado = terminalService.vincularPorQr(token, dispositivo);
             
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Dispositivo vinculado con éxito",
-                "detalle", vinculado
+                "empresaId", vinculado.getSuscripcion().getEmpresa().getId()
             ));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error en vinculación: " + e.getMessage());
+            return ResponseEntity.status(500).body("Error interno: " + e.getMessage());
         }
     }
 }

@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Data
 @Entity
 @Table(name = "inv_terminal_dispositivo")
@@ -15,6 +17,7 @@ public class TerminalDispositivo {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sp_ideregistro", nullable = false)
+    @JsonIgnore
     private SuscripcionPrograma suscripcion;
 
     // --- IDENTIFICACIÓN TÉCNICA Y SEGURIDAD ---

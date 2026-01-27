@@ -35,8 +35,7 @@ public class DataInitializer implements CommandLineRunner {
     @Transactional
     public void run(String... args) throws Exception {
         
-        // 1. CREACIÓN DE GIROS DE NEGOCIO (VERTICALIZACIÓN)
-        // Define qué interfaz y lógica cargará la tablet según el negocio
+        // 1. CREACIÓN DE GIROS DE NEGOCIO
         GiroNegocio giroBillar = checkAndCreateGiro("RESTAURANTE / BILLAR", "REST_BILL", "ARENA_DUELO");
         GiroNegocio giroZapa = checkAndCreateGiro("ZAPATERÍA / RETAIL", "ZAPA", "POS_ESTANDAR");
         GiroNegocio giroSuper = checkAndCreateGiro("SUPERMERCADO", "SUPER_MARKET", "LECTOR_BARRAS");
@@ -56,20 +55,15 @@ public class DataInitializer implements CommandLineRunner {
         // 3. PROGRAMAS DEL SISTEMA
         Programa progInv = checkAndCreatePrograma("Inventario", "INV");
 
-        // 4. ESTRUCTURA DE JUAN (SUPER ADMIN / DUEÑO PLATAFORMA)
+        // 4. ESTRUCTURA DE JUAN (SUPER ADMIN)
         if (usuarioRepository.findByLogin("superadmin").isEmpty()) {
             Tercero terJuan = crearTerceroBasic("1010", "Juan", "Admin", "juan@nodo.com");
             Tercero terEmpNodo = crearTerceroBasic("9001", "Sistemas", "Nodo", "contacto@nodo.com");
-            
             Empresa empNodo = crearEmpresaBasic(terEmpNodo, "SISTEMAS NODO", giroZapa);
-            
-            Usuario userJuan = crearUsuarioBasic("superadmin", "admin123", terJuan, empNodo, superRol);
-
-            Tercero provGlobal = crearTerceroBasic("NIT-POSTOBON", "Postobón", "S.A.", "ventas@postobon.com");
-            vincularTerceroAEmpresa(provGlobal, null, userJuan, true);
+            crearUsuarioBasic("superadmin", "admin123", terJuan, empNodo, superRol);
         }
 
-        // 5. ESTRUCTURA DE DIEGO (CLIENTE / DUEÑO DE BILLAR)
+        // 5. ESTRUCTURA DE DIEGO (BILLARES DIEGO)
         if (usuarioRepository.findByLogin("diego_admin").isEmpty()) {
             Tercero terDiego = crearTerceroBasic("2020", "Diego", "Cliente", "diego@billares.com");
             Tercero terEmpDiego = crearTerceroBasic("8002", "Billares", "Diego", "ventas@billaresdiego.com");
@@ -77,49 +71,55 @@ public class DataInitializer implements CommandLineRunner {
             Empresa empDiego = crearEmpresaBasic(terEmpDiego, "BILLARES DIEGO", giroBillar);
             vincularPrograma(empDiego, progInv);
 
-            Usuario userDiego = crearUsuarioBasic("diego_admin", "diego123", terDiego, empDiego, adminRol);
+            crearUsuarioBasic("diego_admin", "diego123", terDiego, empDiego, adminRol);
 
             // 6. CONTROL DE DISPOSITIVOS (SUSCRIPCIÓN)
-            // Controla el cupo máximo de tablets autorizadas para la empresa
             SuscripcionPrograma subDiego = new SuscripcionPrograma();
             subDiego.setEmpresa(empDiego);
             subDiego.setPrograma(progInv);
-            subDiego.setMaxDispositivos(3);
+            subDiego.setMaxDispositivos(5);
             subDiego.setDispositivosActivos(1);
             subDiego.setActivo(true);
             suscripcionProgramaRepository.save(subDiego);
 
-            // Registro de la primera Terminal/Tablet física
+            // Registro de la Tablet de prueba (UUID Hardware de tu tablet motorola)
             TerminalDispositivo tablet1 = new TerminalDispositivo();
             tablet1.setSuscripcion(subDiego);
-            tablet1.setUuidHardware("ABC-123-XYZ");
-            tablet1.setAlias("Tablet Barra Principal");
+            tablet1.setUuidHardware("809fca6bebd005e2"); // El UUID que vimos en tus logs
+            tablet1.setAlias("Tablet Motorola G84");
             tablet1.setFechaRegistro(LocalDateTime.now());
             tablet1.setBloqueado(false);
             terminalDispositivoRepository.save(tablet1);
 
-            // 7. CREACIÓN DE SLOTS OPERATIVOS (USUARIOS PARA TABLET)
-            // Usuarios reciclables que no requieren registro legal completo
-            UsuarioOperativo op1 = new UsuarioOperativo();
-            op1.setEmpresa(empDiego);
-            op1.setAlias("MESERO 1");
-            op1.setLogin("M1_DIEGO");
-            op1.setPassword(passwordEncoder.encode("1234"));
-            op1.setEstado(EstadoUsuario.ACTIVO);
-            op1.setRol(opRol);
-            op1.setFechaCreacion(LocalDateTime.now());
-            usuarioOperativoRepository.save(op1);
+            // 7. CREACIÓN DE SLOTS OPERATIVOS (TRABAJADORES PARA LA TABLET)
+            // Estos son los que el RecyclerView en Android DEBE mostrar
+            crearSlot(empDiego, "MESERO ALEJO", "M1_ALEJO", "1234", opRol);
+            crearSlot(empDiego, "CAJERO CARLOS", "C1_CARLOS", "5555", opRol);
+            crearSlot(empDiego, "BARTENDER LUCIA", "B1_LUCIA", "0000", opRol);
+            crearSlot(empDiego, "MESERO PEDRO", "M2_PEDRO", "4321", opRol);
 
             System.out.println("-----------------------------------------");
-            System.out.println("🚀 ESCENARIO SaaS VERTICALIZADO LISTO");
-            System.out.println("🏢 GIRO: REST_BILL (Mesa/Duelo activado)");
-            System.out.println("📱 TERMINALES: 1 de 3 activadas (UUID: ABC-123-XYZ)");
-            System.out.println("👤 SLOT: Mesero 1 listo para login en tablet.");
+            System.out.println("🚀 PRUEBA COMPLETA LISTA");
+            System.out.println("🏢 Empresa: BILLARES DIEGO (ID: " + empDiego.getId() + ")");
+            System.out.println("📱 Terminal Motorola Vinculada.");
+            System.out.println("👥 4 Slots creados con PINs: 1234, 5555, 0000, 4321.");
             System.out.println("-----------------------------------------");
         }
     }
 
     // --- MÉTODOS AUXILIARES ---
+
+    private void crearSlot(Empresa emp, String alias, String login, String pin, Rol rol) {
+        UsuarioOperativo op = new UsuarioOperativo();
+        op.setEmpresa(emp);
+        op.setAlias(alias);
+        op.setLogin(login);
+        op.setPassword(passwordEncoder.encode(pin)); // PIN Encriptado
+        op.setEstado(EstadoUsuario.ACTIVO);
+        op.setRol(rol);
+        op.setFechaCreacion(LocalDateTime.now());
+        usuarioOperativoRepository.save(op);
+    }
 
     private GiroNegocio checkAndCreateGiro(String nom, String cod, String template) {
         return giroNegocioRepository.findByCodigo(cod).orElseGet(() -> {
@@ -164,6 +164,8 @@ public class DataInitializer implements CommandLineRunner {
         Usuario u = new Usuario();
         u.setLogin(login);
         u.setPassword(passwordEncoder.encode(pass));
+        System.out.println("VALIDAR----");
+        System.out.println(passwordEncoder.encode(pass));
         u.setEstado(EstadoUsuario.ACTIVO);
         u.setTercero(t);
         u.setEmpresa(e);

@@ -1,6 +1,7 @@
 package com.nodo.inv.service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -40,7 +41,6 @@ public class UsuarioService {
         usuario.setEstado(EstadoUsuario.ACTIVO);
         usuario.setFechaActivacion(LocalDateTime.now());
 
-        // Buscamos las entidades relacionadas
         Tercero tercero = terceroRepository.findById(dto.getTerceroId())
                 .orElseThrow(() -> new RuntimeException("Tercero no encontrado"));
         Empresa empresa = empresaRepository.findById(dto.getEmpresaId())
@@ -51,7 +51,6 @@ public class UsuarioService {
         
         Usuario usuarioGuardado = usuarioRepository.save(usuario);
 
-        // 🛡️ Asignar Rol ADMIN por defecto (puedes buscarlo por nombre)
         Rol rolAdmin = rolRepository.findByNombre("ADMIN")
                 .orElseThrow(() -> new RuntimeException("Rol ADMIN no configurado"));
 
@@ -62,5 +61,25 @@ public class UsuarioService {
         usuarioRolRepository.save(ur);
 
         return usuarioGuardado;
+    }
+
+    /**
+     * NUEVO: Busca todos los usuarios activos de una empresa específica.
+     * Estos serán los "slots" que se mostrarán en la tablet.
+     */
+    public List<Usuario> buscarPorEmpresa(Long empresaId) {
+        return usuarioRepository.findByEmpresaIdAndEstado(empresaId, EstadoUsuario.ACTIVO);
+    }
+
+    /**
+     * NUEVO: Verifica si el PIN ingresado en la tablet es correcto.
+     * Nota: En este flujo, el 'password' del usuario actúa como su PIN.
+     */
+    public boolean verificarPin(Long usuarioId, String pinIngresado) {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        
+        // El passwordEncoder compara el texto plano (pin) con el hash de la DB
+        return passwordEncoder.matches(pinIngresado, usuario.getPassword());
     }
 }

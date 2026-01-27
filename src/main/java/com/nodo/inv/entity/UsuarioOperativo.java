@@ -38,4 +38,13 @@ public class UsuarioOperativo {
 
     @Column(name = "uop_fecha_creacion")
     private LocalDateTime fechaCreacion;
+    
+    @Column(name = "uop_intentos_fallidos")
+    private int intentosFallidos = 0;
+    
+    @Column(name = "uop_bloqueado")
+    private boolean bloqueado = false;
+    
+    @Column(name = "uop_fecha_bloqueo")
+    private LocalDateTime fechaBloqueo;
 }

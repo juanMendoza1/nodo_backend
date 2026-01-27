@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Data
 @Entity
 @Table(name = "inv_suscripcion_programa")
@@ -15,6 +17,7 @@ public class SuscripcionPrograma {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "emp_ideregistro", nullable = false)
+    @JsonIgnore
     private Empresa empresa;
 
     @ManyToOne(fetch = FetchType.LAZY)
