@@ -35,7 +35,9 @@ public class InventarioController {
      * Procesa el despacho de productos (Estado 'ENTREGADO' en la tablet).
      * Resta automáticamente el stock y genera el rastro con la referencia del duelo.
      */
+    
     @PostMapping("/despacho-mesa")
+    @PreAuthorize("hasAnyRole('OPERATIVO', 'ADMIN', 'SUPER')")
     public ResponseEntity<?> procesarDespacho(
             @RequestParam Long productoId,
             @RequestParam Integer cantidad,

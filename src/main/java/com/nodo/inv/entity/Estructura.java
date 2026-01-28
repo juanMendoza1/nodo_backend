@@ -1,6 +1,5 @@
 package com.nodo.inv.entity;
 
-import jakarta.persistence.Entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -19,4 +18,7 @@ public class Estructura {
 
     @Column(name = "est_nombre", nullable = false, length = 100)
     private String nombre; // Ej: "TIPOS DE IDENTIFICACION"
+    
+    @Column(name = "est_codigo", nullable = false, unique = true, length = 50)
+    private String codigo;
 }

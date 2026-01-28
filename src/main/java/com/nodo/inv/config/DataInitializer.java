@@ -9,7 +9,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 
 @Component
 @RequiredArgsConstructor
@@ -30,6 +32,12 @@ public class DataInitializer implements CommandLineRunner {
     private final TerminalDispositivoRepository terminalDispositivoRepository;
     private final UsuarioOperativoRepository usuarioOperativoRepository;
     private final PasswordEncoder passwordEncoder;
+
+    // Nuevos repositorios para productos y parámetros
+    private final ClaseRepository claseRepository;
+    private final EstructuraRepository estructuraRepository;
+    private final UnidadRepository unidadRepository;
+    private final ProductoRepository productoRepository;
 
     @Override
     @Transactional
@@ -85,36 +93,104 @@ public class DataInitializer implements CommandLineRunner {
             // Registro de la Tablet de prueba (UUID Hardware de tu tablet motorola)
             TerminalDispositivo tablet1 = new TerminalDispositivo();
             tablet1.setSuscripcion(subDiego);
-            tablet1.setUuidHardware("809fca6bebd005e2"); // El UUID que vimos en tus logs
+            tablet1.setUuidHardware("809fca6bebd005e2");
             tablet1.setAlias("Tablet Motorola G84");
             tablet1.setFechaRegistro(LocalDateTime.now());
             tablet1.setBloqueado(false);
             terminalDispositivoRepository.save(tablet1);
 
-            // 7. CREACIÓN DE SLOTS OPERATIVOS (TRABAJADORES PARA LA TABLET)
-            // Estos son los que el RecyclerView en Android DEBE mostrar
+            // 7. CREACIÓN DE SLOTS OPERATIVOS
             crearSlot(empDiego, "MESERO ALEJO", "M1_ALEJO", "1234", opRol);
             crearSlot(empDiego, "CAJERO CARLOS", "C1_CARLOS", "5555", opRol);
             crearSlot(empDiego, "BARTENDER LUCIA", "B1_LUCIA", "0000", opRol);
             crearSlot(empDiego, "MESERO PEDRO", "M2_PEDRO", "4321", opRol);
 
+            // 8. MOTOR DE PARÁMETROS: CLASE -> ESTRUCTURA -> UNIDAD
+            Clase claseInv = checkAndCreateClase("INVENTARIO", "INV");
+
+            // Estructura para Categorías
+            Estructura estCat = checkAndCreateEstructura(claseInv, "CATEGORIAS DE PRODUCTO", "CAT_PROD");
+            Unidad uniBebida = checkAndCreateUnidad(estCat, "BEBIDAS", "BEB");
+            Unidad uniComida = checkAndCreateUnidad(estCat, "COMIDAS", "COM");
+            Unidad uniLicores = checkAndCreateUnidad(estCat, "LICORES", "LIC");
+
+            // Estructura para Unidades de Medida
+            Estructura estMed = checkAndCreateEstructura(claseInv, "UNIDADES DE MEDIDA", "UNI_MED");
+            Unidad uniBotella = checkAndCreateUnidad(estMed, "BOTELLA", "BOT");
+            Unidad uniPlato = checkAndCreateUnidad(estMed, "PLATO", "PLA");
+            Unidad uniTrago = checkAndCreateUnidad(estMed, "TRAGO", "TRA");
+
+            // 9. CATÁLOGO DE PRODUCTOS (Asociados a BILLARES DIEGO)
+            crearProducto(empDiego, "P001", "Cerveza Poker 330ml", uniBebida, uniBotella, 3500.0, 5500.0, 100);
+            crearProducto(empDiego, "P002", "Cerveza Club Colombia", uniBebida, uniBotella, 4000.0, 6500.0, 80);
+            crearProducto(empDiego, "P003", "Empanada de Carne", uniComida, uniPlato, 1200.0, 2500.0, 50);
+            crearProducto(empDiego, "P004", "Picada Familiar", uniComida, uniPlato, 25000.0, 45000.0, 20);
+            crearProducto(empDiego, "P005", "Aguardiente Antioqueño (Trago)", uniLicores, uniTrago, 5000.0, 12000.0, 40);
+
             System.out.println("-----------------------------------------");
             System.out.println("🚀 PRUEBA COMPLETA LISTA");
             System.out.println("🏢 Empresa: BILLARES DIEGO (ID: " + empDiego.getId() + ")");
-            System.out.println("📱 Terminal Motorola Vinculada.");
-            System.out.println("👥 4 Slots creados con PINs: 1234, 5555, 0000, 4321.");
+            System.out.println("📦 Catálogo de productos sincronizado.");
+            System.out.println("👥 4 Slots creados.");
             System.out.println("-----------------------------------------");
         }
     }
 
     // --- MÉTODOS AUXILIARES ---
 
+    private Clase checkAndCreateClase(String nombre, String codigo) {
+        return claseRepository.findByCodigo(codigo).orElseGet(() -> {
+            Clase c = new Clase();
+            c.setNombre(nombre);
+            c.setCodigo(codigo);
+            return claseRepository.save(c);
+        });
+    }
+
+    private Estructura checkAndCreateEstructura(Clase clase, String nombre, String codigo) {
+        return estructuraRepository.findByCodigo(codigo).orElseGet(() -> {
+            Estructura e = new Estructura();
+            e.setClase(clase);
+            e.setNombre(nombre);
+            e.setCodigo(codigo);
+            return estructuraRepository.save(e);
+        });
+    }
+
+    private Unidad checkAndCreateUnidad(Estructura est, String nombre, String codigo) {
+        return unidadRepository.findByEstructuraId(est.getId()).stream()
+                .filter(u -> u.getCodigo().equals(codigo))
+                .findFirst()
+                .orElseGet(() -> {
+                    Unidad u = new Unidad();
+                    u.setEstructura(est);
+                    u.setNombre(nombre);
+                    u.setCodigo(codigo);
+                    return unidadRepository.save(u);
+                });
+    }
+
+    private void crearProducto(Empresa emp, String cod, String nom, Unidad cat, Unidad med, Double costo, Double venta, Integer stock) {
+        Producto p = new Producto();
+        p.setEmpresa(emp);
+        p.setCodigo(cod);
+        p.setNombre(nom);
+        p.setCategoria(cat);
+        p.setUnidadMedida(med);
+        p.setPrecioCosto(BigDecimal.valueOf(costo));
+        p.setPrecioVenta(BigDecimal.valueOf(venta));
+        p.setStockActual(stock);
+        p.setStockMinimo(5);
+        p.setActivo(true);
+        productoRepository.save(p);
+    }
+
     private void crearSlot(Empresa emp, String alias, String login, String pin, Rol rol) {
         UsuarioOperativo op = new UsuarioOperativo();
         op.setEmpresa(emp);
         op.setAlias(alias);
         op.setLogin(login);
-        op.setPassword(passwordEncoder.encode(pin)); // PIN Encriptado
+        op.setPassword(passwordEncoder.encode(pin));
         op.setEstado(EstadoUsuario.ACTIVO);
         op.setRol(rol);
         op.setFechaCreacion(LocalDateTime.now());
@@ -129,16 +205,6 @@ public class DataInitializer implements CommandLineRunner {
             gn.setTemplateMovil(template);
             return giroNegocioRepository.save(gn);
         });
-    }
-
-    private void vincularTerceroAEmpresa(Tercero t, Empresa e, Usuario u, boolean global) {
-        EmpresaTercero et = new EmpresaTercero();
-        et.setTercero(t);
-        et.setEmpresa(e);
-        et.setCreadoPor(u);
-        et.setEsGlobal(global);
-        et.setFechaVinculo(LocalDateTime.now());
-        empresaTerceroRepository.save(et);
     }
 
     private Tercero crearTerceroBasic(String doc, String nom, String ape, String mail) {
@@ -164,8 +230,6 @@ public class DataInitializer implements CommandLineRunner {
         Usuario u = new Usuario();
         u.setLogin(login);
         u.setPassword(passwordEncoder.encode(pass));
-        System.out.println("VALIDAR----");
-        System.out.println(passwordEncoder.encode(pass));
         u.setEstado(EstadoUsuario.ACTIVO);
         u.setTercero(t);
         u.setEmpresa(e);

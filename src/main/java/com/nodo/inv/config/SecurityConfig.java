@@ -20,6 +20,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.nodo.inv.jwt.JwtAuthenticationFilter;
+import com.nodo.inv.jwt.TerminalAuthenticationFilter;
 
 @Configuration
 @EnableMethodSecurity
@@ -38,7 +39,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, TerminalAuthenticationFilter terminalFilter) throws Exception {
 
         http
             .cors(c -> c.configurationSource(corsConfigurationSource()))
@@ -47,24 +48,33 @@ public class SecurityConfig {
                 sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             .authorizeHttpRequests(auth -> auth
-            	    .requestMatchers("/auth/**").permitAll()
-            	    
-            	    // Cambiamos a /** para asegurar que atrape cualquier sub-ruta o parámetro
-            	    .requestMatchers("/api/terminales/activar/**").permitAll()
-            	    .requestMatchers("/api/terminales/validar/**").permitAll()
-            	    .requestMatchers("/api/terminales/vincular-qr/**").permitAll()
-            	    
-            	    // IMPORTANTE: Asegúrate que esta ruta coincida exactamente con tu Controller
-            	    .requestMatchers("/api/usuarios/empresa/**").permitAll() 
-            	    .requestMatchers("/api/usuarios/login-tablet/**").permitAll()
-            	    
-            	    .anyRequest().authenticated()
-            	)
+                // 1. Rutas de Autenticación Web (Panel de Diego)
+                .requestMatchers("/auth/**").permitAll()
+                
+                // 2. Rutas de Vinculación de Terminales (Públicas para el primer enlace)
+                .requestMatchers("/api/terminales/activar/**").permitAll()
+                .requestMatchers("/api/terminales/validar/**").permitAll()
+                .requestMatchers("/api/terminales/vincular-qr/**").permitAll()
+                
+                // 3. Rutas de Login de Tablet (Para que el mesero vea su nombre y ponga su PIN)
+                .requestMatchers("/api/usuarios/empresa/**").permitAll() 
+                .requestMatchers("/api/usuarios/login-tablet/**").permitAll()
+                
+                // 4. Catálogo: Ahora lo protegemos. Solo tablets vinculadas (via terminalFilter)
+                // o usuarios con sesión pueden ver productos.
+                .requestMatchers("/api/productos/**").hasAnyRole("OPERATIVO", "ADMIN", "SUPER")
+                
+                // 5. Inventario y Despachos: Protegido por Roles
+                .requestMatchers("/api/inventario/despacho-mesa/**").hasAnyRole("OPERATIVO", "ADMIN")
+                
+                // Cualquier otra petición debe estar autenticada
+                .anyRequest().authenticated()
+            )
             .authenticationProvider(authenticationProvider())
-            .addFilterBefore(
-                jwtAuthenticationFilter,
-                UsernamePasswordAuthenticationFilter.class
-            );
+            // Primero verificamos si es una Tablet reconocida por UUID
+            .addFilterBefore(terminalFilter, UsernamePasswordAuthenticationFilter.class)
+            // Luego verificamos si trae un Token JWT (Para el Panel Web)
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
