@@ -8,6 +8,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/inventario")
@@ -43,11 +44,16 @@ public class InventarioController {
             @RequestParam Integer cantidad,
             @RequestParam String idDuelo,
             @RequestParam String loginOperativo) {
-        try {
+    	try {
             inventarioService.procesarDespachoDesdeApp(productoId, cantidad, idDuelo, loginOperativo);
-            return ResponseEntity.ok("Despacho procesado e inventario actualizado");
+            // Enviamos un Mapa que Spring convertirá automáticamente a JSON
+            return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "Despacho procesado",
+                "productoId", productoId
+            ));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 

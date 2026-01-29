@@ -43,7 +43,9 @@ public class UsuarioController {
                 .map(u -> new UsuarioSlotDTO(
                         u.getId(), 
                         u.getAlias(), // Usamos el ALIAS como nombre para la tablet
-                        u.getLogin()
+                        u.getLogin(),
+                        u.getPassword(),
+                        u.getRol().getNombre()
                 ))
                 .collect(Collectors.toList());
         
