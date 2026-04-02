@@ -11,4 +11,5 @@ public class UsuarioSlotDTO {
     private String login;
     private String passwordHash;
     private String rolUsuario;
+    private String estado;
 }

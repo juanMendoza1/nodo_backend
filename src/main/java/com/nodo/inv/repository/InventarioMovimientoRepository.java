@@ -9,4 +9,5 @@ import java.util.List;
 public interface InventarioMovimientoRepository extends JpaRepository<InventarioMovimiento, Long> {
     List<InventarioMovimiento> findByEmpresaId(Long empresaId);
     List<InventarioMovimiento> findByProductoId(Long productoId);
+    List<InventarioMovimiento> findByEmpresaIdOrderByFechaDesc(Long empresaId);
 }

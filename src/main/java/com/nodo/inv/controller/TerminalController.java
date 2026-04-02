@@ -130,4 +130,35 @@ public class TerminalController {
         }
     }
     
+    @PutMapping("/{id}/toggle-bloqueo")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<?> toggleBloqueo(@PathVariable Long id) {
+        try {
+            TerminalDispositivo terminal = terminalService.alternarBloqueo(id);
+            String estado = terminal.getBloqueado() ? "bloqueada" : "desbloqueada";
+            return ResponseEntity.ok(Map.of(
+                "mensaje", "La terminal ha sido " + estado + " exitosamente",
+                "bloqueado", terminal.getBloqueado()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Desvincula una terminal, eliminándola y liberando el cupo de la empresa.
+     */
+    @DeleteMapping("/{id}/desvincular")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<?> desvincular(@PathVariable Long id) {
+        try {
+            terminalService.desvincularTerminal(id);
+            return ResponseEntity.ok(Map.of(
+                "mensaje", "Terminal desvinculada y cupo liberado exitosamente"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+    
 }

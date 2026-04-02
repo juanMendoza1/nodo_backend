@@ -14,6 +14,7 @@ import com.nodo.inv.entity.Usuario;
 import com.nodo.inv.entity.UsuarioOperativo;
 import com.nodo.inv.service.UsuarioOperativoService;
 import com.nodo.inv.service.UsuarioService;
+import com.nodo.inv.dto.UsuarioSlotGuardarDTO;
 
 import lombok.RequiredArgsConstructor;
 
@@ -45,7 +46,8 @@ public class UsuarioController {
                         u.getAlias(), // Usamos el ALIAS como nombre para la tablet
                         u.getLogin(),
                         u.getPassword(),
-                        u.getRol().getNombre()
+                        u.getRol().getNombre(),
+                        u.getEstado().name()
                 ))
                 .collect(Collectors.toList());
         
@@ -72,4 +74,27 @@ public class UsuarioController {
             return ResponseEntity.badRequest().body("Error en la solicitud de autenticación");
         }
     }
+    
+    @PostMapping("/empresa/{empresaId}/slots")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<?> guardarSlot(@PathVariable Long empresaId, @RequestBody UsuarioSlotGuardarDTO dto) {
+        try {
+            operativoService.guardarSlot(empresaId, dto);
+            return ResponseEntity.ok(Map.of("mensaje", "Slot guardado exitosamente"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/slots/{id}/estado")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<?> toggleEstadoSlot(@PathVariable Long id) {
+        try {
+            operativoService.cambiarEstado(id);
+            return ResponseEntity.ok(Map.of("mensaje", "Estado actualizado"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+    
 }

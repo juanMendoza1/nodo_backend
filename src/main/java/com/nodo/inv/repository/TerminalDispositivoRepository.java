@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface TerminalDispositivoRepository extends JpaRepository<TerminalDispositivo, Long> {
     Optional<TerminalDispositivo> findByUuidHardware(String uuidHardware);
     List<TerminalDispositivo> findBySuscripcionEmpresaId(Long empresaId);
+    long countBySuscripcionEmpresaIdAndBloqueadoFalse(Long empresaId);
 }

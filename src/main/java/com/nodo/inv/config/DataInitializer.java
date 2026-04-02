@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 
 @Component
 @RequiredArgsConstructor
@@ -60,8 +59,9 @@ public class DataInitializer implements CommandLineRunner {
         asignarPermisoARol(adminRol, invEdit);
         asignarPermisoARol(opRol, invView);
 
-        // 3. PROGRAMAS DEL SISTEMA
+        // 3. PROGRAMAS DEL SISTEMA (AQUÍ AGREGAMOS POS)
         Programa progInv = checkAndCreatePrograma("Inventario", "INV");
+        Programa progPos = checkAndCreatePrograma("Punto de Venta", "POS");
 
         // 4. ESTRUCTURA DE JUAN (SUPER ADMIN)
         if (usuarioRepository.findByLogin("superadmin").isEmpty()) {
@@ -77,22 +77,36 @@ public class DataInitializer implements CommandLineRunner {
             Tercero terEmpDiego = crearTerceroBasic("8002", "Billares", "Diego", "ventas@billaresdiego.com");
             
             Empresa empDiego = crearEmpresaBasic(terEmpDiego, "BILLARES DIEGO", giroBillar);
+            
+            // Vinculamos ambos programas a la empresa
             vincularPrograma(empDiego, progInv);
+            vincularPrograma(empDiego, progPos);
 
             crearUsuarioBasic("diego_admin", "diego123", terDiego, empDiego, adminRol);
 
-            // 6. CONTROL DE DISPOSITIVOS (SUSCRIPCIÓN)
-            SuscripcionPrograma subDiego = new SuscripcionPrograma();
-            subDiego.setEmpresa(empDiego);
-            subDiego.setPrograma(progInv);
-            subDiego.setMaxDispositivos(5);
-            subDiego.setDispositivosActivos(1);
-            subDiego.setActivo(true);
-            suscripcionProgramaRepository.save(subDiego);
+            // 6. CONTROL DE DISPOSITIVOS (SUSCRIPCIONES POR PROGRAMA)
+            
+            // --- Suscripción para Módulo de Inventario (INV) ---
+            SuscripcionPrograma subDiegoInv = new SuscripcionPrograma();
+            subDiegoInv.setEmpresa(empDiego);
+            subDiegoInv.setPrograma(progInv);
+            subDiegoInv.setMaxDispositivos(5);
+            subDiegoInv.setDispositivosActivos(1); // 1 en uso por la tablet de prueba
+            subDiegoInv.setActivo(true);
+            suscripcionProgramaRepository.save(subDiegoInv);
 
-            // Registro de la Tablet de prueba (UUID Hardware de tu tablet motorola)
+            // --- Suscripción para Módulo de Punto de Venta (POS) ---
+            SuscripcionPrograma subDiegoPos = new SuscripcionPrograma();
+            subDiegoPos.setEmpresa(empDiego);
+            subDiegoPos.setPrograma(progPos);
+            subDiegoPos.setMaxDispositivos(5);
+            subDiegoPos.setDispositivosActivos(0); // 0 en uso inicialmente
+            subDiegoPos.setActivo(true);
+            suscripcionProgramaRepository.save(subDiegoPos);
+
+            // Registro de la Tablet de prueba (Vinculada a INV temporalmente)
             TerminalDispositivo tablet1 = new TerminalDispositivo();
-            tablet1.setSuscripcion(subDiego);
+            tablet1.setSuscripcion(subDiegoInv); 
             tablet1.setUuidHardware("809fca6bebd005e2");
             tablet1.setAlias("Tablet Motorola G84");
             tablet1.setFechaRegistro(LocalDateTime.now());
@@ -128,7 +142,7 @@ public class DataInitializer implements CommandLineRunner {
             crearProducto(empDiego, "P005", "Aguardiente Antioqueño (Trago)", uniLicores, uniTrago, 5000.0, 12000.0, 40);
 
             System.out.println("-----------------------------------------");
-            System.out.println("🚀 PRUEBA COMPLETA LISTA");
+            System.out.println("🚀 PRUEBA COMPLETA LISTA (INCLUYE POS E INV)");
             System.out.println("🏢 Empresa: BILLARES DIEGO (ID: " + empDiego.getId() + ")");
             System.out.println("📦 Catálogo de productos sincronizado.");
             System.out.println("👥 4 Slots creados.");

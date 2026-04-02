@@ -1,5 +1,7 @@
 package com.nodo.inv.controller;
 
+import com.nodo.inv.dto.DashboardStatsDTO;
+import com.nodo.inv.dto.MovimientoDTO;
 import com.nodo.inv.entity.InventarioMovimiento;
 import com.nodo.inv.service.InventarioService;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +29,7 @@ public class InventarioController {
         try {
             return ResponseEntity.ok(inventarioService.registrarMovimiento(movimiento));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -36,7 +38,6 @@ public class InventarioController {
      * Procesa el despacho de productos (Estado 'ENTREGADO' en la tablet).
      * Resta automáticamente el stock y genera el rastro con la referencia del duelo.
      */
-    
     @PostMapping("/despacho-mesa")
     @PreAuthorize("hasAnyRole('OPERATIVO', 'ADMIN', 'SUPER')")
     public ResponseEntity<?> procesarDespacho(
@@ -44,7 +45,7 @@ public class InventarioController {
             @RequestParam Integer cantidad,
             @RequestParam String idDuelo,
             @RequestParam String loginOperativo) {
-    	try {
+        try {
             inventarioService.procesarDespachoDesdeApp(productoId, cantidad, idDuelo, loginOperativo);
             // Enviamos un Mapa que Spring convertirá automáticamente a JSON
             return ResponseEntity.ok(Map.of(
@@ -59,10 +60,20 @@ public class InventarioController {
 
     /**
      * Obtiene el historial de movimientos de una empresa específica.
+     * Ahora devuelve el DTO estructurado en lugar de la entidad directa.
      */
     @GetMapping("/historial/{empresaId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
-    public ResponseEntity<List<InventarioMovimiento>> listarHistorial(@PathVariable Long empresaId) {
-        return ResponseEntity.ok(inventarioService.obtenerHistorialPorEmpresa(empresaId));
+    public ResponseEntity<List<MovimientoDTO>> listarHistorial(@PathVariable Long empresaId) {
+        return ResponseEntity.ok(inventarioService.obtenerHistorialAuditoria(empresaId));
+    }
+
+    /**
+     * NUEVO: Obtiene las estadísticas clave para el Dashboard principal.
+     */
+    @GetMapping("/dashboard/{empresaId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<DashboardStatsDTO> obtenerStats(@PathVariable Long empresaId) {
+        return ResponseEntity.ok(inventarioService.obtenerEstadisticasDashboard(empresaId));
     }
 }

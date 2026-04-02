@@ -52,6 +52,7 @@ public class SecurityConfig {
                 .requestMatchers("/auth/**").permitAll()
                 
                 // 2. Rutas de Vinculación de Terminales (Públicas para el primer enlace)
+                .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/api/terminales/activar/**").permitAll()
                 .requestMatchers("/api/terminales/validar/**").permitAll()
                 .requestMatchers("/api/terminales/vincular-qr/**").permitAll()

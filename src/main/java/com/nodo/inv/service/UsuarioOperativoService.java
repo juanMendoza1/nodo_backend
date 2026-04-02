@@ -1,6 +1,12 @@
 package com.nodo.inv.service;
 
+import com.nodo.inv.Utils.EstadoUsuario;
+import com.nodo.inv.dto.UsuarioSlotGuardarDTO;
+import com.nodo.inv.entity.Empresa;
+import com.nodo.inv.entity.Rol;
 import com.nodo.inv.entity.UsuarioOperativo;
+import com.nodo.inv.repository.EmpresaRepository;
+import com.nodo.inv.repository.RolRepository;
 import com.nodo.inv.repository.UsuarioOperativoRepository;
 
 import jakarta.transaction.Transactional;
@@ -17,10 +23,64 @@ public class UsuarioOperativoService {
 
     private final UsuarioOperativoRepository repository;
     private final PasswordEncoder passwordEncoder;
+    private final EmpresaRepository empresaRepository;
+    private final RolRepository rolRepository;
 
     public List<UsuarioOperativo> listarPorEmpresa(Long empresaId) {
-        // Retornamos solo los que pertenecen a la empresa
         return repository.findByEmpresaId(empresaId);
+    }
+
+    // --- NUEVO: GUARDAR / EDITAR SLOT ---
+    @Transactional
+    public UsuarioOperativo guardarSlot(Long empresaId, UsuarioSlotGuardarDTO dto) {
+        UsuarioOperativo slot;
+
+        if (dto.getId() != null) {
+            slot = repository.findById(dto.getId())
+                    .orElseThrow(() -> new RuntimeException("Slot no encontrado"));
+            
+            // Si mandan un nuevo PIN, lo actualizamos. Si viene vacío, dejamos el actual.
+            if (dto.getPassword() != null && !dto.getPassword().trim().isEmpty()) {
+                slot.setPassword(passwordEncoder.encode(dto.getPassword()));
+            }
+        } else {
+            slot = new UsuarioOperativo();
+            Empresa empresa = empresaRepository.findById(empresaId)
+                    .orElseThrow(() -> new RuntimeException("Empresa no encontrada"));
+            Rol rol = rolRepository.findByNombre("OPERATIVO")
+                    .orElseThrow(() -> new RuntimeException("Rol OPERATIVO no configurado"));
+            
+            slot.setEmpresa(empresa);
+            slot.setRol(rol);
+            slot.setEstado(EstadoUsuario.ACTIVO);
+            slot.setFechaCreacion(LocalDateTime.now());
+            
+            if (dto.getPassword() == null || dto.getPassword().trim().isEmpty()) {
+                throw new RuntimeException("El PIN es obligatorio para nuevos usuarios");
+            }
+            slot.setPassword(passwordEncoder.encode(dto.getPassword()));
+        }
+
+        slot.setAlias(dto.getAlias().toUpperCase());
+        slot.setLogin(dto.getLogin().toUpperCase());
+
+        return repository.save(slot);
+    }
+
+    // --- NUEVO: ACTIVAR / DESACTIVAR SLOT ---
+    @Transactional
+    public void cambiarEstado(Long id) {
+        UsuarioOperativo slot = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Slot no encontrado"));
+        
+        if (slot.getEstado() == EstadoUsuario.ACTIVO) {
+            slot.setEstado(EstadoUsuario.INACTIVO);
+        } else {
+            slot.setEstado(EstadoUsuario.ACTIVO);
+            slot.setIntentosFallidos(0); // Reseteamos bloqueos por si acaso
+            slot.setBloqueado(false);
+        }
+        repository.save(slot);
     }
 
     public boolean verificarPin(Long id, String pinIngresado) {

@@ -145,5 +145,34 @@ public class TerminalService {
         return terminalRepository.findBySuscripcionEmpresaId(empresaId);
     }
     
+    @Transactional
+    public TerminalDispositivo alternarBloqueo(Long idTerminal) {
+        TerminalDispositivo terminal = terminalRepository.findById(idTerminal)
+                .orElseThrow(() -> new RuntimeException("Terminal no encontrada"));
+        
+        // Invertimos el estado actual (Si era false pasa a true, y viceversa)
+        terminal.setBloqueado(!terminal.getBloqueado());
+        
+        return terminalRepository.save(terminal);
+    }
+
+    @Transactional
+    public void desvincularTerminal(Long idTerminal) {
+        TerminalDispositivo terminal = terminalRepository.findById(idTerminal)
+                .orElseThrow(() -> new RuntimeException("Terminal no encontrada"));
+
+        SuscripcionPrograma suscripcion = terminal.getSuscripcion();
+        
+        // 1. Restar el cupo usado en la suscripción para liberarlo
+        if (suscripcion.getDispositivosActivos() > 0) {
+            suscripcion.setDispositivosActivos(suscripcion.getDispositivosActivos() - 1);
+            suscripcionRepository.save(suscripcion);
+        }
+
+        // 2. Eliminar el dispositivo de la base de datos
+        // (Opcionalmente, en lugar de eliminar, podrías cambiarle un estado a "ELIMINADO" si quieres guardar el historial)
+        terminalRepository.delete(terminal);
+    }
+    
     
 }
