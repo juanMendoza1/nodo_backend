@@ -118,4 +118,16 @@ public class TerminalController {
             return ResponseEntity.status(500).body("Error interno: " + e.getMessage());
         }
     }
+    
+    @GetMapping("/empresa/{empresaId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<?> obtenerTerminalesPorEmpresa(@PathVariable Long empresaId) {
+        try {
+            // Llama a tu servicio para listar las terminales de la BD
+            return ResponseEntity.ok(terminalService.listarPorEmpresa(empresaId)); 
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error al listar terminales: " + e.getMessage());
+        }
+    }
+    
 }
