@@ -18,33 +18,31 @@ public class Mesa {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "emp_ideregistro", nullable = false)
-    private Empresa empresa; // Vinculación con la empresa
+    private Empresa empresa;
 
     @Column(name = "mes_id_local")
-    private Integer idMesaLocal; // El ID que viene de la App móvil
+    private Integer idMesaLocal; 
 
     @Column(name = "mes_nombre", length = 50)
-    private String nombre; // Ej: "Mesa 1", "Mesa VIP"
+    private String nombre; 
 
     @Column(name = "mes_estado")
-    private String estado; // "ABIERTO", "CERRADO", "INACTIVO"
+    private String estado; // "DISPONIBLE", "ABIERTO", "OCUPADA"
 
-    @Column(name = "mes_tipo_juego")
-    private String tipoJuego; // "POOL" o "3BANDAS"
+    // 🔥 REGRESAMOS EL TIPO DE JUEGO PARA QUE LA MESA TENGA MEMORIA EN ESTADO "ABIERTO"
+    @Column(name = "mes_tipo_juego", length = 50)
+    private String tipoJuego; 
 
     @Column(name = "mes_tarifa_tiempo", precision = 18, scale = 2)
-    private BigDecimal tarifaTiempo; // Costo por hora
-
-    @Column(name = "mes_regla_duelo")
-    private String reglaDuelo; // "GANADOR_SALVA", etc.
+    private BigDecimal tarifaTiempo; 
 
     @Column(name = "mes_fecha_apertura")
-    private Long fechaApertura; // Timestamp de apertura
+    private Long fechaApertura; 
 
     @Column(name = "mes_fecha_cierre")
-    private Long fechaCierre; // Timestamp de cierre
+    private Long fechaCierre; 
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "usu_ideregistro")
-    private Usuario usuarioActual; // Usuario que tiene abierta la mesa
+    @JoinColumn(name = "uop_ideregistro")
+    private UsuarioOperativo usuarioActual; 
 }
