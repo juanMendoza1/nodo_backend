@@ -46,6 +46,8 @@ public class SyncService {
         Empresa empresa = empresaRepo.findById(paquete.getEmpresaId())
                 .orElseThrow(() -> new RuntimeException("Empresa no encontrada"));
 
+        String topicMonitor = "/topic/monitor-operativo/" + paquete.getEmpresaId();
+
         for (EventoOperativoDTO evento : paquete.getEventos()) {
             if (actividadRepo.existsByEventoId(evento.getEventoId())) {
                 omitidos++;
@@ -69,6 +71,13 @@ public class SyncService {
 
             actividadRepo.save(actividad);
             procesados++;
+
+            Map<String, Object> broadcastPayload = new HashMap<>();
+            broadcastPayload.put("tipo", evento.getTipoEvento());
+            broadcastPayload.put("data", evento.getData());
+            broadcastPayload.put("fecha", evento.getFechaDispositivo());
+            broadcastPayload.put("terminalUuid", paquete.getTerminalUuid());
+            messagingTemplate.convertAndSend(topicMonitor, broadcastPayload);
 
             ejecutarLogicaDeNegocio(actividad, evento.getData());
         }
@@ -118,7 +127,6 @@ public class SyncService {
             messagingTemplate.convertAndSend("/topic/duelos/" + actividad.getEmpresa().getId(), reporteDto);
 
         } catch (Exception e) {
-            // Error silenciado para evitar ralentización
         }
     }
 }
