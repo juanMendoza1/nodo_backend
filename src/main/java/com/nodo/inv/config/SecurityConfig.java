@@ -91,11 +91,17 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Se permite cualquier origen para facilitar el desarrollo con dispositivos físicos
-        configuration.setAllowedOrigins(Arrays.asList("*")); 
+        
+        // 🔥 SOLUCIÓN: Usamos OriginPatterns en lugar de Origins para que Spring 
+        // devuelva el dominio exacto en vez de un asterisco (*).
+        configuration.setAllowedOriginPatterns(Arrays.asList("*")); 
+        
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        // Se agregan los headers necesarios para la comunicación móvil
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Terminal-UUID"));
+        
+        // 🔥 SOLUCIÓN 2: Permitimos explícitamente el envío de credenciales para que SockJS no falle
+        configuration.setAllowCredentials(true); 
+        
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

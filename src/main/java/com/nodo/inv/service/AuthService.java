@@ -67,6 +67,7 @@ public class AuthService {
         return LoginResponseDTO.builder()
                 .token(token)
                 .username(userDetails.getUsername())
+                .usuarioId(usuario.getId())
                 .empresaId(usuario.getEmpresa().getId())
                 .nombreEmpresa(usuario.getEmpresa().getNombreComercial())
                 .roles(roles)

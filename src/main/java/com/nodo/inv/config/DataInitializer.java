@@ -68,6 +68,20 @@ public class DataInitializer implements CommandLineRunner {
             Tercero terJuan = crearTerceroBasic("1010", "Juan", "Admin", "juan@nodo.com");
             Tercero terEmpNodo = crearTerceroBasic("9001", "Sistemas", "Nodo", "contacto@nodo.com");
             Empresa empNodo = crearEmpresaBasic(terEmpNodo, "SISTEMAS NODO", giroZapa);
+            
+            // 🔥 SOLUCIÓN: Vinculamos los programas a la Empresa 1
+            vincularPrograma(empNodo, progInv);
+            vincularPrograma(empNodo, progPos);
+
+            // 🔥 SOLUCIÓN: Le damos una suscripción a la Empresa 1 para que tenga cupos
+            SuscripcionPrograma subNodoInv = new SuscripcionPrograma();
+            subNodoInv.setEmpresa(empNodo);
+            subNodoInv.setPrograma(progInv);
+            subNodoInv.setMaxDispositivos(10); // 10 cupos para el Super Admin
+            subNodoInv.setDispositivosActivos(0);
+            subNodoInv.setActivo(true);
+            suscripcionProgramaRepository.save(subNodoInv);
+
             crearUsuarioBasic("superadmin", "admin123", terJuan, empNodo, superRol);
         }
 
