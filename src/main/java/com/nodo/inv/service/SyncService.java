@@ -283,9 +283,11 @@ public class SyncService {
         statusPayload.put("fechaApertura", mesa.getFechaApertura());
         statusPayload.put("tarifaTiempo", mesa.getTarifaTiempo());
 
-        if (data != null && data.containsKey("tipoJuego")) {
-            statusPayload.put("tipoJuego", data.get("tipoJuego").toString());
+        // 🔥 CORRECCIÓN: Tomamos el tipo de juego SIEMPRE de la entidad Mesa (Memoria persistente)
+        if (mesa.getTipoJuego() != null) {
+            statusPayload.put("tipoJuego", mesa.getTipoJuego());
         }
+
         if (mesa.getUsuarioActual() != null) {
             Map<String, String> user = new HashMap<>();
             user.put("alias", mesa.getUsuarioActual().getAlias());
