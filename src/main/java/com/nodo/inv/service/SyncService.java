@@ -8,14 +8,18 @@ import com.nodo.inv.dto.SincronizacionPaqueteDTO;
 import com.nodo.inv.entity.ActividadOperativa;
 import com.nodo.inv.entity.Empresa;
 import com.nodo.inv.entity.HistoricoDuelo;
+import com.nodo.inv.entity.Mesa;
 import com.nodo.inv.repository.ActividadOperativaRepository;
 import com.nodo.inv.repository.EmpresaRepository;
 import com.nodo.inv.repository.HistoricoDueloRepository;
+import com.nodo.inv.repository.MesaRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,6 +41,9 @@ public class SyncService {
 
     @Autowired
     private HistoricoDueloRepository historicoRepository;
+    
+    @Autowired
+    private MesaRepository mesaRepo;
 
     @Transactional
     public Map<String, Object> procesarPaquete(SincronizacionPaqueteDTO paquete) {
@@ -95,9 +102,15 @@ public class SyncService {
 
     private void ejecutarLogicaDeNegocio(ActividadOperativa actividad, Map<String, Object> data) {
         switch (actividad.getTipoEvento()) {
-            case "DUELO_FINALIZADO_ESTADISTICO":
-                procesarYGuardarEstadisticas(actividad, data);
-                break;
+        case "MESA_ABIERTA":
+            actualizarEstadoMesa(actividad, data, "ABIERTO");
+            break;
+        case "MESA_CERRADA":
+            actualizarEstadoMesa(actividad, data, "CERRADO");
+            break;
+        case "DUELO_FINALIZADO_ESTADISTICO":
+            procesarYGuardarEstadisticas(actividad, data);
+            break;
             case "PEDIDO_NUEVO":
             case "PEDIDO_DIRECTO":
             case "DESPACHO":
@@ -127,6 +140,47 @@ public class SyncService {
             messagingTemplate.convertAndSend("/topic/duelos/" + actividad.getEmpresa().getId(), reporteDto);
 
         } catch (Exception e) {
+        }
+    }
+    
+    private void actualizarEstadoMesa(ActividadOperativa actividad, Map<String, Object> data, String nuevoEstado) {
+        try {
+            // Extraemos el ID local de la mesa desde el JSON de detalles
+            Integer idMesaLocal = (Integer) data.get("idMesa");
+            
+            // Buscamos si la mesa ya existe para esta empresa
+            Mesa mesa = mesaRepo.findByEmpresaIdAndIdMesaLocal(actividad.getEmpresa().getId(), idMesaLocal)
+                    .orElse(new Mesa());
+
+            // Si es nueva, configuramos los datos básicos
+            if (mesa.getId() == null) {
+                mesa.setEmpresa(actividad.getEmpresa());
+                mesa.setIdMesaLocal(idMesaLocal);
+                mesa.setNombre("Mesa " + idMesaLocal);
+            }
+
+            // Actualizamos según el evento
+            mesa.setEstado(nuevoEstado);
+            
+            if ("ABIERTO".equals(nuevoEstado)) {
+                mesa.setFechaApertura(actividad.getFechaDispositivo());
+                mesa.setTipoJuego((String) data.get("tipoJuego"));
+                mesa.setTarifaTiempo(new BigDecimal(data.get("tarifaTiempo").toString()));
+                mesa.setReglaDuelo((String) data.get("reglaDuelo"));
+            } else {
+                mesa.setFechaCierre(actividad.getFechaDispositivo());
+            }
+
+            mesaRepo.save(mesa);
+
+            // Notificamos por WebSocket para que el monitor web cambie de color
+            Map<String, Object> statusPayload = new HashMap<>();
+            statusPayload.put("idMesaLocal", idMesaLocal);
+            statusPayload.put("estado", nuevoEstado);
+            messagingTemplate.convertAndSend("/topic/mesas/" + actividad.getEmpresa().getId(), statusPayload);
+
+        } catch (Exception e) {
+            // Log de error si el JSON no tiene el formato esperado
         }
     }
 }
