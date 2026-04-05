@@ -34,8 +34,20 @@ public class MesaController {
     @GetMapping("/empresa/{empresaId}/mesa/{idMesaLocal}/actividad")
     @PreAuthorize("hasAnyRole('OPERATIVO', 'ADMIN', 'SUPER')")
     public ResponseEntity<?> obtenerActividadDeMesa(@PathVariable Long empresaId, @PathVariable Integer idMesaLocal) {
-        // Retorna todos los eventos crudos de la mesa, el Frontend (React) se encargará de armar la cuenta.
-        return ResponseEntity.ok(actividadRepo.findByEmpresaAndMesaLocal(empresaId, idMesaLocal));
+        
+        List<com.nodo.inv.entity.ActividadOperativa> actividades = actividadRepo.findByEmpresaAndMesaLocal(empresaId, idMesaLocal);
+        
+        // 🔥 SOLUCIÓN AL BUCLE INFINITO: Mapeamos solo lo que React necesita
+        List<java.util.Map<String, Object>> respuestaLimpia = actividades.stream().map(a -> {
+            java.util.Map<String, Object> map = new java.util.HashMap<>();
+            map.put("eventoId", a.getEventoId());
+            map.put("tipoEvento", a.getTipoEvento());
+            map.put("fechaDispositivo", a.getFechaDispositivo());
+            map.put("detallesJson", a.getDetallesJson());
+            return map;
+        }).toList();
+
+        return ResponseEntity.ok(respuestaLimpia);
     }
     
 }

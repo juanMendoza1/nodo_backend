@@ -183,18 +183,27 @@ public class SyncService {
 
     private void prepararMesa(ActividadOperativa actividad, Map<String, Object> data) {
         if (actividad.getMesa() == null) return;
+        
         Mesa mesa = actividad.getMesa();
         mesa.setEstado("ABIERTO");
+        
+        // 🔥 ESTO FALTABA PARA QUITAR EL N/A: Guardamos el tipo de juego en la BD
+        if (data != null && data.containsKey("tipoJuego")) {
+            mesa.setTipoJuego(data.get("tipoJuego").toString());
+        }
+        
         if (data != null && data.containsKey("idUsuarioSlot")) {
             Long idSlot = ((Number) data.get("idUsuarioSlot")).longValue();
             usuarioOperativoRepo.findById(idSlot).ifPresent(mesa::setUsuarioActual);
         }
+        
         mesaRepo.save(mesa);
         notificarMonitorWeb(mesa, data);
     }
 
     private void iniciarDuelo(ActividadOperativa actividad, Map<String, Object> data) {
         if (actividad.getMesa() == null) return;
+
         if (actividad.getDuelo() != null) {
             Duelo duelo = actividad.getDuelo();
             duelo.setEstado("EN_CURSO");
@@ -210,17 +219,24 @@ public class SyncService {
             }
             dueloRepo.save(duelo);
         }
+
         Mesa mesa = actividad.getMesa();
         mesa.setEstado("OCUPADA");
         mesa.setFechaApertura(actividad.getFechaDispositivo());
+        
+        // 🔥 ESTO TAMBIÉN FALTABA AQUÍ
+        if (data != null && data.containsKey("tipoJuego")) {
+            mesa.setTipoJuego(data.get("tipoJuego").toString());
+        }
+        
         if (data.containsKey("idUsuarioSlot")) {
             Long idSlot = ((Number) data.get("idUsuarioSlot")).longValue();
             usuarioOperativoRepo.findById(idSlot).ifPresent(mesa::setUsuarioActual);
         }
+
         mesaRepo.save(mesa);
         notificarMonitorWeb(mesa, data);
     }
-
     // 🔥 NUEVA FUNCIÓN: Termina el juego pero deja la mesa configurada ("En espera")
     private void finalizarDueloYMantenerMesa(ActividadOperativa actividad, Map<String, Object> data) {
         if (actividad.getMesa() == null) return;
@@ -283,7 +299,7 @@ public class SyncService {
         statusPayload.put("fechaApertura", mesa.getFechaApertura());
         statusPayload.put("tarifaTiempo", mesa.getTarifaTiempo());
 
-        // 🔥 CORRECCIÓN: Tomamos el tipo de juego SIEMPRE de la entidad Mesa (Memoria persistente)
+        // 🔥 CORRECCIÓN: Tomar el tipo de juego SIEMPRE de la entidad Mesa (que persiste en BD)
         if (mesa.getTipoJuego() != null) {
             statusPayload.put("tipoJuego", mesa.getTipoJuego());
         }

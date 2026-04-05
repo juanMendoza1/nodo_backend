@@ -16,4 +16,6 @@ public interface ActividadOperativaRepository extends JpaRepository<ActividadOpe
     boolean existsByEventoId(String eventoId);
     @Query("SELECT a FROM ActividadOperativa a WHERE a.empresa.id = :empresaId AND a.mesa.idMesaLocal = :idMesaLocal ORDER BY a.fechaDispositivo DESC")
     List<ActividadOperativa> findByEmpresaAndMesaLocal(@Param("empresaId") Long empresaId, @Param("idMesaLocal") Integer idMesaLocal);
+    @Query("SELECT a FROM ActividadOperativa a WHERE a.empresa.id = :empresaId ORDER BY a.fechaDispositivo DESC")
+    List<ActividadOperativa> findByEmpresaIdOrderByFechaDispositivoDesc(@Param("empresaId") Long empresaId);
 }
