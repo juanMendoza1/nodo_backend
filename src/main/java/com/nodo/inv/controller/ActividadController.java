@@ -21,10 +21,9 @@ public class ActividadController {
 
     @GetMapping("/empresa/{empresaId}")
     public ResponseEntity<?> obtenerActividadGlobal(@PathVariable Long empresaId) {
-        // Obtenemos las actividades reales de la base de datos
+        
         List<ActividadOperativa> actividades = actividadRepo.findByEmpresaIdOrderByFechaDispositivoDesc(empresaId);
         
-        // Mapeamos a una respuesta plana para evitar errores de recursión JSON y StackOverflow
         List<Map<String, Object>> respuestaLimpia = actividades.stream().map(a -> {
             Map<String, Object> map = new HashMap<>();
             map.put("eventoId", a.getEventoId());
@@ -32,8 +31,6 @@ public class ActividadController {
             map.put("fechaDispositivo", a.getFechaDispositivo());
             map.put("detallesJson", a.getDetallesJson());
             
-            // 🔥 PASAR EL ID DE LA MESA PARA LA CAJA NEGRA (Dashboard React)
-            // Si el objeto 'mesa' está vinculado, tomamos su ID local
             if (a.getMesa() != null) {
                 map.put("mesaId", a.getMesa().getIdMesaLocal());
             } else {

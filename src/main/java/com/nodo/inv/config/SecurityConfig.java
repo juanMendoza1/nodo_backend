@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import java.util.Arrays;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod; // 🔥 ASEGÚRATE DE IMPORTAR ESTO
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -32,9 +33,7 @@ public class SecurityConfig {
     private final PasswordEncoder passwordEncoder;
 
     @Bean
-    public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration config
-    ) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
 
@@ -48,34 +47,27 @@ public class SecurityConfig {
                 sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             .authorizeHttpRequests(auth -> auth
-                // 1. Rutas de Autenticación Web (Panel de Diego)
-                .requestMatchers("/auth/**").permitAll()
+                // 🔥 ESTA ES LA CLAVE PARA QUE REACT FUNCIONE SIN ERRORES CORS
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 
-                // 2. Rutas de Vinculación de Terminales (Públicas para el primer enlace)
+                // Rutas públicas
+                .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/api/v1/sync/**").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/api/terminales/activar/**").permitAll()
                 .requestMatchers("/api/terminales/validar/**").permitAll()
                 .requestMatchers("/api/terminales/vincular-qr/**").permitAll()
-                
-                // 3. Rutas de Login de Tablet (Para que el mesero vea su nombre y ponga su PIN)
                 .requestMatchers("/api/usuarios/empresa/**").permitAll() 
                 .requestMatchers("/api/usuarios/login-tablet/**").permitAll()
                 
-                // 4. Catálogo: Ahora lo protegemos. Solo tablets vinculadas (via terminalFilter)
-                // o usuarios con sesión pueden ver productos.
+                // Rutas Protegidas
                 .requestMatchers("/api/productos/**").hasAnyRole("OPERATIVO", "ADMIN", "SUPER")
-                
-                // 5. Inventario y Despachos: Protegido por Roles
                 .requestMatchers("/api/inventario/despacho-mesa/**").hasAnyRole("OPERATIVO", "ADMIN")
                 
-                // Cualquier otra petición debe estar autenticada
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())
-            // Primero verificamos si es una Tablet reconocida por UUID
             .addFilterBefore(terminalFilter, UsernamePasswordAuthenticationFilter.class)
-            // Luego verificamos si trae un Token JWT (Para el Panel Web)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -92,15 +84,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
-        // 🔥 SOLUCIÓN: Usamos OriginPatterns en lugar de Origins para que Spring 
-        // devuelva el dominio exacto en vez de un asterisco (*).
         configuration.setAllowedOriginPatterns(Arrays.asList("*")); 
-        
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Terminal-UUID"));
-        
-        // 🔥 SOLUCIÓN 2: Permitimos explícitamente el envío de credenciales para que SockJS no falle
         configuration.setAllowCredentials(true); 
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -11,7 +11,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/sync")
-@CrossOrigin(origins = "*")
 public class SyncController {
 
     @Autowired
@@ -23,7 +22,6 @@ public class SyncController {
             Map<String, Object> resultado = syncService.procesarPaquete(paquete);
             return ResponseEntity.ok(resultado);
         } catch (DataIntegrityViolationException e) {
-            // 🔥 ESCUDO ANTI-DUPLICADOS: Responde OK para que la tablet limpie su cola
             return ResponseEntity.ok(Map.of(
                 "status", "ignored",
                 "message", "Evento duplicado omitido correctamente",
