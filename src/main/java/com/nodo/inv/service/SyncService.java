@@ -5,18 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nodo.inv.dto.EventoOperativoDTO;
 import com.nodo.inv.dto.ReporteEstadisticoDueloDTO;
 import com.nodo.inv.dto.SincronizacionPaqueteDTO;
-import com.nodo.inv.entity.ActividadOperativa;
-import com.nodo.inv.entity.Duelo;
-import com.nodo.inv.entity.Empresa;
-import com.nodo.inv.entity.HistoricoDuelo;
-import com.nodo.inv.entity.Mesa;
-import com.nodo.inv.repository.ActividadOperativaRepository;
-import com.nodo.inv.repository.DueloRepository;
-import com.nodo.inv.repository.EmpresaRepository;
-import com.nodo.inv.repository.HistoricoDueloRepository;
-import com.nodo.inv.repository.MesaRepository;
-import com.nodo.inv.repository.UsuarioOperativoRepository;
-
+import com.nodo.inv.entity.*;
+import com.nodo.inv.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -24,10 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Service
 public class SyncService {
@@ -62,6 +49,7 @@ public class SyncService {
 
         for (EventoOperativoDTO evento : paquete.getEventos()) {
             
+            // 🛡️ Filtro de Duplicados en el mismo lote o ya existentes en BD
             if (eventosProcesadosEnEsteLote.contains(evento.getEventoId()) || 
                 actividadRepo.existsByEventoId(evento.getEventoId())) {
                 omitidos++;
@@ -79,21 +67,19 @@ public class SyncService {
             actividad.setEstadoProcesamiento("PROCESADO");
 
             Map<String, Object> data = evento.getData();
+
+            // 🔥 CORRECCIÓN: VINCULAR MESA PARA EVITAR "UBICACIÓN N/A"
             if (data != null && data.containsKey("idMesa")) {
                 try {
                     Integer idMesaLocal = ((Number) data.get("idMesa")).intValue();
-                    Mesa mesa = mesaRepo.findByEmpresaIdAndIdMesaLocal(empresa.getId(), idMesaLocal)
-                            .orElse(new Mesa());
-                    if (mesa.getId() == null) {
-                        mesa.setEmpresa(empresa);
-                        mesa.setIdMesaLocal(idMesaLocal);
-                        mesa.setNombre("Mesa " + idMesaLocal);
-                        mesa = mesaRepo.save(mesa);
-                    }
-                    actividad.setMesa(mesa);
-                } catch (Exception e) {}
+                    mesaRepo.findByEmpresaIdAndIdMesaLocal(empresa.getId(), idMesaLocal)
+                            .ifPresent(actividad::setMesa);
+                } catch (Exception e) {
+                    System.err.println("Error vinculando mesa a actividad: " + e.getMessage());
+                }
             }
 
+            // Gestión de Duelo
             if (data != null && data.containsKey("uuidDuelo")) {
                 try {
                     String uuid = data.get("uuidDuelo").toString();
@@ -117,6 +103,7 @@ public class SyncService {
             actividad = actividadRepo.save(actividad);
             procesados++;
 
+            // Notificación vía WebSocket para Monitor Operativo (crudo)
             Map<String, Object> broadcastPayload = new HashMap<>();
             broadcastPayload.put("tipo", evento.getTipoEvento());
             broadcastPayload.put("data", data);
@@ -124,10 +111,11 @@ public class SyncService {
             broadcastPayload.put("terminalUuid", paquete.getTerminalUuid());
             messagingTemplate.convertAndSend(topicMonitor, broadcastPayload);
 
+            // Ejecución de cambios de estado en la base de datos
             ejecutarLogicaDeNegocio(actividad, data);
         }
 
-        // 🔥 CORRECCIÓN CRÍTICA DE WEBSOCKET: Ahora las ventas de ListaClientes y Duelo se reflejarán en React
+        // 🔥 GATILLO REACT: Despierta el Dashboard y los paneles de mesa
         if (procesados > 0) {
             messagingTemplate.convertAndSend("/topic/empresa/" + paquete.getEmpresaId() + "/dashboard", "NUEVA_VENTA");
         }
@@ -145,23 +133,24 @@ public class SyncService {
                 registrarMesaFisica(actividad, data);
                 break;
             case "MESA_ABIERTA":
+            case "CLIENTE_NUEVO": // Soporte universal para restaurante/bar
                 prepararMesa(actividad, data);
                 break;
             case "DUELO_INICIADO":
                 iniciarDuelo(actividad, data);
                 break;
             case "MESA_CERRADA":
-                liberarMesa(actividad, data); // (Clic sostenido)
+                liberarMesa(actividad, data);
                 break;
             case "DUELO_FINALIZADO_ESTADISTICO":
                 procesarYGuardarEstadisticas(actividad, data);
-                finalizarDueloYMantenerMesa(actividad, data); // 🔥 NUEVA REGLA (Mantiene la mesa viva)
+                finalizarDueloYMantenerMesa(actividad, data);
                 break;
         }
     }
 
     // =========================================================================
-    // LÓGICA DE ESTADOS
+    // LÓGICA DE ESTADOS PERSISTENTES
     // =========================================================================
 
     private void registrarMesaFisica(ActividadOperativa actividad, Map<String, Object> data) {
@@ -171,6 +160,7 @@ public class SyncService {
         mesa.setTarifaTiempo(null);
         mesa.setFechaApertura(null);
         mesa.setFechaCierre(null);
+        mesa.setTipoJuego(null);
         if (data != null && data.containsKey("idUsuarioSlot")) {
             Long idSlot = ((Number) data.get("idUsuarioSlot")).longValue();
             usuarioOperativoRepo.findById(idSlot).ifPresent(mesa::setUsuarioActual);
@@ -183,11 +173,10 @@ public class SyncService {
 
     private void prepararMesa(ActividadOperativa actividad, Map<String, Object> data) {
         if (actividad.getMesa() == null) return;
-        
         Mesa mesa = actividad.getMesa();
         mesa.setEstado("ABIERTO");
         
-        // 🔥 ESTO FALTABA PARA QUITAR EL N/A: Guardamos el tipo de juego en la BD
+        // 🔥 PERSISTENCIA: Guardamos el tipo de juego para evitar N/A al refrescar
         if (data != null && data.containsKey("tipoJuego")) {
             mesa.setTipoJuego(data.get("tipoJuego").toString());
         }
@@ -196,7 +185,6 @@ public class SyncService {
             Long idSlot = ((Number) data.get("idUsuarioSlot")).longValue();
             usuarioOperativoRepo.findById(idSlot).ifPresent(mesa::setUsuarioActual);
         }
-        
         mesaRepo.save(mesa);
         notificarMonitorWeb(mesa, data);
     }
@@ -224,7 +212,7 @@ public class SyncService {
         mesa.setEstado("OCUPADA");
         mesa.setFechaApertura(actividad.getFechaDispositivo());
         
-        // 🔥 ESTO TAMBIÉN FALTABA AQUÍ
+        // 🔥 PERSISTENCIA: Se asegura de que la mesa recuerde el juego
         if (data != null && data.containsKey("tipoJuego")) {
             mesa.setTipoJuego(data.get("tipoJuego").toString());
         }
@@ -233,21 +221,17 @@ public class SyncService {
             Long idSlot = ((Number) data.get("idUsuarioSlot")).longValue();
             usuarioOperativoRepo.findById(idSlot).ifPresent(mesa::setUsuarioActual);
         }
-
         mesaRepo.save(mesa);
         notificarMonitorWeb(mesa, data);
     }
-    // 🔥 NUEVA FUNCIÓN: Termina el juego pero deja la mesa configurada ("En espera")
+
     private void finalizarDueloYMantenerMesa(ActividadOperativa actividad, Map<String, Object> data) {
         if (actividad.getMesa() == null) return;
         Mesa mesa = actividad.getMesa();
-        
-        mesa.setEstado("ABIERTO"); // Regresa a Naranja
-        mesa.setFechaApertura(null); // Detenemos el cronómetro
-        // NO BORRAMOS el usuarioActual ni el tipoJuego. La mesa sigue pre-configurada.
+        mesa.setEstado("ABIERTO"); // Regresa a Naranja (En espera)
+        mesa.setFechaApertura(null); 
         mesaRepo.save(mesa);
 
-        // Solo cerramos el duelo
         dueloRepo.findByMesaAndEstado(mesa, "EN_CURSO").ifPresent(dueloActivo -> {
             dueloActivo.setEstado("FINALIZADO");
             dueloActivo.setFechaFin(actividad.getFechaDispositivo());
@@ -260,11 +244,12 @@ public class SyncService {
     private void liberarMesa(ActividadOperativa actividad, Map<String, Object> data) {
         if (actividad.getMesa() == null) return;
         Mesa mesa = actividad.getMesa();
-        mesa.setEstado("DISPONIBLE"); // Se apaga la mesa por completo
+        mesa.setEstado("DISPONIBLE"); 
         mesa.setFechaCierre(actividad.getFechaDispositivo());
         mesa.setUsuarioActual(null);
         mesa.setTarifaTiempo(null);
         mesa.setFechaApertura(null);
+        mesa.setTipoJuego(null);
         mesaRepo.save(mesa);
 
         dueloRepo.findByMesaAndEstado(mesa, "EN_CURSO").ifPresent(dueloActivo -> {
@@ -299,7 +284,7 @@ public class SyncService {
         statusPayload.put("fechaApertura", mesa.getFechaApertura());
         statusPayload.put("tarifaTiempo", mesa.getTarifaTiempo());
 
-        // 🔥 CORRECCIÓN: Tomar el tipo de juego SIEMPRE de la entidad Mesa (que persiste en BD)
+        // 🔥 OBLIGATORIO: Tomar el tipo de juego SIEMPRE de la entidad Mesa (BD)
         if (mesa.getTipoJuego() != null) {
             statusPayload.put("tipoJuego", mesa.getTipoJuego());
         }

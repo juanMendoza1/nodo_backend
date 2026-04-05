@@ -2,13 +2,17 @@ package com.nodo.inv.controller;
 
 import com.nodo.inv.dto.SincronizacionPaqueteDTO;
 import com.nodo.inv.service.SyncService;
+import com.nodo.inv.repository.ActividadOperativaRepository;
+import com.nodo.inv.entity.ActividadOperativa;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/sync")
@@ -19,7 +23,7 @@ public class SyncController {
     private SyncService syncService;
     
     @Autowired
-    private com.nodo.inv.repository.ActividadOperativaRepository actividadRepo;
+    private ActividadOperativaRepository actividadRepo;
 
     @PostMapping("/procesar")
     public ResponseEntity<?> procesarActividad(@RequestBody SincronizacionPaqueteDTO paquete) {
@@ -27,28 +31,38 @@ public class SyncController {
             Map<String, Object> resultado = syncService.procesarPaquete(paquete);
             return ResponseEntity.ok(resultado);
         } catch (DataIntegrityViolationException e) {
-            // 🔥 ESCUDO ANTI-CRASH: Si llegan dos peticiones idénticas al mismo milisegundo (Race Condition),
-            // ignoramos el choque y le decimos a la tablet "OK" para que libere su memoria sin tumbar el servidor.
-            return ResponseEntity.ok(Map.of("procesados", 0, "omitidos", paquete.getEventos().size(), "msg", "Duplicado paralelo omitido"));
+            // 🔥 ESCUDO ANTI-DUPLICADOS: Responde OK para que la tablet limpie su cola
+            return ResponseEntity.ok(Map.of(
+                "status", "ignored",
+                "message", "Evento duplicado omitido correctamente",
+                "omitidos", paquete.getEventos().size()
+            ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
     @GetMapping("/empresa/{empresaId}/actividad")
     public ResponseEntity<?> obtenerActividadGlobal(@PathVariable Long empresaId) {
-        List<com.nodo.inv.entity.ActividadOperativa> actividades = actividadRepo.findByEmpresaIdOrderByFechaDispositivoDesc(empresaId);
+        // Traemos el historial ordenado por fecha descendente
+        List<ActividadOperativa> actividades = actividadRepo.findByEmpresaIdOrderByFechaDispositivoDesc(empresaId);
         
-        List<java.util.Map<String, Object>> respuestaLimpia = actividades.stream().map(a -> {
-            java.util.Map<String, Object> map = new java.util.HashMap<>();
+        // Mapeamos a una respuesta limpia para evitar errores de nesting/profundidad JSON
+        List<Map<String, Object>> respuestaLimpia = actividades.stream().map(a -> {
+            Map<String, Object> map = new HashMap<>();
             map.put("eventoId", a.getEventoId());
             map.put("tipoEvento", a.getTipoEvento());
             map.put("fechaDispositivo", a.getFechaDispositivo());
             map.put("detallesJson", a.getDetallesJson());
+            
+            // 🔥 PASAMOS EL ID DE LA MESA PARA LA COLUMNA "UBICACIÓN"
             if (a.getMesa() != null) {
                 map.put("mesaId", a.getMesa().getIdMesaLocal());
+            } else {
+                map.put("mesaId", null);
             }
             return map;
-        }).toList();
+        }).collect(Collectors.toList());
 
         return ResponseEntity.ok(respuestaLimpia);
     }
