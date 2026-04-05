@@ -49,7 +49,7 @@ public class SyncService {
 
         for (EventoOperativoDTO evento : paquete.getEventos()) {
             
-            // 🛡️ Filtro de Duplicados en el mismo lote o ya existentes en BD
+            // 🛡️ 1. Filtro de Duplicados (Lote actual y Base de Datos)
             if (eventosProcesadosEnEsteLote.contains(evento.getEventoId()) || 
                 actividadRepo.existsByEventoId(evento.getEventoId())) {
                 omitidos++;
@@ -57,6 +57,7 @@ public class SyncService {
             }
             eventosProcesadosEnEsteLote.add(evento.getEventoId());
 
+            // 📝 2. Preparar la entidad Actividad
             ActividadOperativa actividad = new ActividadOperativa();
             actividad.setEventoId(evento.getEventoId());
             actividad.setTerminalUuid(paquete.getTerminalUuid());
@@ -67,20 +68,42 @@ public class SyncService {
             actividad.setEstadoProcesamiento("PROCESADO");
 
             Map<String, Object> data = evento.getData();
+            if (data == null) data = new HashMap<>(); 
 
-            // 🔥 CORRECCIÓN: VINCULAR MESA PARA EVITAR "UBICACIÓN N/A"
-            if (data != null && data.containsKey("idMesa")) {
+            // 🔥 3. VÍNCULO FÍSICO Y CREACIÓN ON-DEMAND (SOLUCIÓN AL N/A)
+            if (data.containsKey("idMesa")) {
                 try {
                     Integer idMesaLocal = ((Number) data.get("idMesa")).intValue();
-                    mesaRepo.findByEmpresaIdAndIdMesaLocal(empresa.getId(), idMesaLocal)
-                            .ifPresent(actividad::setMesa);
+                    
+                    // Buscamos si la mesa ya existe en la base de datos del servidor
+                    Optional<Mesa> mesaOpt = mesaRepo.findByEmpresaIdAndIdMesaLocal(empresa.getId(), idMesaLocal);
+                    
+                    Mesa mesaEntity;
+                    if (mesaOpt.isPresent()) {
+                        mesaEntity = mesaOpt.get();
+                    } else if ("MESA_CREADA".equals(evento.getTipoEvento())) {
+                        // Si el evento es creación y no existe en pos_mesa, la insertamos ahora
+                        mesaEntity = new Mesa();
+                        mesaEntity.setEmpresa(empresa);
+                        mesaEntity.setIdMesaLocal(idMesaLocal);
+                        mesaEntity.setNombre("Mesa " + idMesaLocal);
+                        mesaEntity.setEstado("DISPONIBLE");
+                        mesaEntity = mesaRepo.save(mesaEntity); 
+                        System.out.println("Mesa " + idMesaLocal + " creada físicamente en base de datos.");
+                    } else {
+                        mesaEntity = null;
+                    }
+
+                    if (mesaEntity != null) {
+                        actividad.setMesa(mesaEntity); // Se vincula para la columna mes_ideregistro
+                    }
                 } catch (Exception e) {
-                    System.err.println("Error vinculando mesa a actividad: " + e.getMessage());
+                    System.err.println("Error procesando vinculación de mesa: " + e.getMessage());
                 }
             }
 
-            // Gestión de Duelo
-            if (data != null && data.containsKey("uuidDuelo")) {
+            // 4. Gestión de Duelo (Si el evento incluye UUID)
+            if (data.containsKey("uuidDuelo")) {
                 try {
                     String uuid = data.get("uuidDuelo").toString();
                     Duelo duelo = dueloRepo.findByUuidDuelo(uuid).orElse(new Duelo());
@@ -94,28 +117,30 @@ public class SyncService {
                 } catch (Exception e) {}
             }
 
+            // 5. Serializar detalles a JSON
             try {
                 actividad.setDetallesJson(objectMapper.writeValueAsString(data));
             } catch (JsonProcessingException e) {
                 actividad.setDetallesJson("{}");
             }
 
-            actividad = actividadRepo.save(actividad);
+            // 🛡️ 6. GUARDADO DE ACTIVIDAD (Con mesa ya vinculada)
+            actividad = actividadRepo.save(actividad); 
             procesados++;
 
-            // Notificación vía WebSocket para Monitor Operativo (crudo)
+            // ⚡ 7. LÓGICA DE NEGOCIO (Actualiza estados de Mesa/Duelo en BD)
+            ejecutarLogicaDeNegocio(actividad, data);
+
+            // 📡 8. NOTIFICACIÓN MONITOR OPERATIVO (WebSockets)
             Map<String, Object> broadcastPayload = new HashMap<>();
             broadcastPayload.put("tipo", evento.getTipoEvento());
             broadcastPayload.put("data", data);
             broadcastPayload.put("fecha", evento.getFechaDispositivo());
             broadcastPayload.put("terminalUuid", paquete.getTerminalUuid());
             messagingTemplate.convertAndSend(topicMonitor, broadcastPayload);
-
-            // Ejecución de cambios de estado en la base de datos
-            ejecutarLogicaDeNegocio(actividad, data);
         }
 
-        // 🔥 GATILLO REACT: Despierta el Dashboard y los paneles de mesa
+        // 🔥 9. REFRESH DASHBOARD: Notifica a React que hay nuevos datos procesados
         if (procesados > 0) {
             messagingTemplate.convertAndSend("/topic/empresa/" + paquete.getEmpresaId() + "/dashboard", "NUEVA_VENTA");
         }
@@ -133,7 +158,7 @@ public class SyncService {
                 registrarMesaFisica(actividad, data);
                 break;
             case "MESA_ABIERTA":
-            case "CLIENTE_NUEVO": // Soporte universal para restaurante/bar
+            case "CLIENTE_NUEVO": // Soporte universal para Restaurante/Bar
                 prepararMesa(actividad, data);
                 break;
             case "DUELO_INICIADO":
@@ -176,7 +201,7 @@ public class SyncService {
         Mesa mesa = actividad.getMesa();
         mesa.setEstado("ABIERTO");
         
-        // 🔥 PERSISTENCIA: Guardamos el tipo de juego para evitar N/A al refrescar
+        // 🔥 PERSISTENCIA: La mesa memoriza el juego para evitar "N/A" al recargar
         if (data != null && data.containsKey("tipoJuego")) {
             mesa.setTipoJuego(data.get("tipoJuego").toString());
         }
@@ -212,12 +237,12 @@ public class SyncService {
         mesa.setEstado("OCUPADA");
         mesa.setFechaApertura(actividad.getFechaDispositivo());
         
-        // 🔥 PERSISTENCIA: Se asegura de que la mesa recuerde el juego
+        // 🔥 PERSISTENCIA: Sincroniza el juego actual en la mesa
         if (data != null && data.containsKey("tipoJuego")) {
             mesa.setTipoJuego(data.get("tipoJuego").toString());
         }
         
-        if (data.containsKey("idUsuarioSlot")) {
+        if (data != null && data.containsKey("idUsuarioSlot")) {
             Long idSlot = ((Number) data.get("idUsuarioSlot")).longValue();
             usuarioOperativoRepo.findById(idSlot).ifPresent(mesa::setUsuarioActual);
         }
@@ -228,7 +253,7 @@ public class SyncService {
     private void finalizarDueloYMantenerMesa(ActividadOperativa actividad, Map<String, Object> data) {
         if (actividad.getMesa() == null) return;
         Mesa mesa = actividad.getMesa();
-        mesa.setEstado("ABIERTO"); // Regresa a Naranja (En espera)
+        mesa.setEstado("ABIERTO"); // Regresa a Naranja (En espera de otro cliente o juego)
         mesa.setFechaApertura(null); 
         mesaRepo.save(mesa);
 
@@ -244,7 +269,7 @@ public class SyncService {
     private void liberarMesa(ActividadOperativa actividad, Map<String, Object> data) {
         if (actividad.getMesa() == null) return;
         Mesa mesa = actividad.getMesa();
-        mesa.setEstado("DISPONIBLE"); 
+        mesa.setEstado("DISPONIBLE"); // Se apaga la mesa por completo (Click Sostenido Tablet)
         mesa.setFechaCierre(actividad.getFechaDispositivo());
         mesa.setUsuarioActual(null);
         mesa.setTarifaTiempo(null);
@@ -284,7 +309,7 @@ public class SyncService {
         statusPayload.put("fechaApertura", mesa.getFechaApertura());
         statusPayload.put("tarifaTiempo", mesa.getTarifaTiempo());
 
-        // 🔥 OBLIGATORIO: Tomar el tipo de juego SIEMPRE de la entidad Mesa (BD)
+        // 🔥 CORRECCIÓN: Leemos el juego directamente desde la entidad persistida
         if (mesa.getTipoJuego() != null) {
             statusPayload.put("tipoJuego", mesa.getTipoJuego());
         }
