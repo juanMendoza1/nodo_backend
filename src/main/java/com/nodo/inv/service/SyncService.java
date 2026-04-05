@@ -13,7 +13,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 
 @Service
@@ -35,6 +37,10 @@ public class SyncService {
     private UsuarioOperativoRepository usuarioOperativoRepo;
     @Autowired
     private DueloRepository dueloRepo;
+    @Autowired
+    private PedidoRepository pedidoRepo;
+    @Autowired
+    private TerminalDispositivoRepository terminalRepo;
 
     @Transactional
     public Map<String, Object> procesarPaquete(SincronizacionPaqueteDTO paquete) {
@@ -152,13 +158,15 @@ public class SyncService {
         return respuesta;
     }
 
-    private void ejecutarLogicaDeNegocio(ActividadOperativa actividad, Map<String, Object> data) {
+private void ejecutarLogicaDeNegocio(ActividadOperativa actividad, Map<String, Object> data) {
+        
+        // 1. Ejecutar Lógica de Estado de Mesas (Lo que ya tenías)
         switch (actividad.getTipoEvento()) {
             case "MESA_CREADA":
                 registrarMesaFisica(actividad, data);
                 break;
             case "MESA_ABIERTA":
-            case "CLIENTE_NUEVO": // Soporte universal para Restaurante/Bar
+            case "CLIENTE_NUEVO": 
                 prepararMesa(actividad, data);
                 break;
             case "DUELO_INICIADO":
@@ -172,6 +180,10 @@ public class SyncService {
                 finalizarDueloYMantenerMesa(actividad, data);
                 break;
         }
+
+        // 2. 🔥 NUEVA LÓGICA: GESTIÓN TRANSACCIONAL DEL PEDIDO (COMANDA)
+        // Esto creará y llenará el ticket en vivo en la base de datos
+        gestionarComandaTransaccional(actividad, data);
     }
 
     // =========================================================================
@@ -324,4 +336,143 @@ public class SyncService {
         }
         messagingTemplate.convertAndSend("/topic/mesas/" + mesa.getEmpresa().getId(), statusPayload);
     }
+    
+    private void gestionarComandaTransaccional(ActividadOperativa actividad, Map<String, Object> data) {
+        String tipoEvento = actividad.getTipoEvento();
+        Mesa mesa = actividad.getMesa();
+        Empresa empresa = actividad.getEmpresa();
+
+        if (mesa == null) return; // Por ahora requiere mesa
+
+        // 1. LA FECHA EXACTA DE LA TABLET
+        LocalDateTime fechaTransaccion = Instant.ofEpochMilli(actividad.getFechaDispositivo())
+                                                .atZone(ZoneId.systemDefault())
+                                                .toLocalDateTime();
+
+        // 🔥 2. CAPTURAR LA TERMINAL Y EL PROGRAMA (¡La solución al error!)
+        TerminalDispositivo terminal = null;
+        Programa programa = null; 
+        
+        if (actividad.getTerminalUuid() != null) {
+            terminal = terminalRepo.findByUuidHardware(actividad.getTerminalUuid()).orElse(null);
+            
+            // Si la terminal existe, sacamos el programa al que pertenece
+            if (terminal != null) {
+                programa = terminal.getPrograma(); // Asumiendo que TerminalDispositivo tiene getPrograma()
+            }
+        }
+
+        // 3. CAPTURAR EL OPERARIO QUE ATENDIÓ
+        UsuarioOperativo operario = null;
+        if (data.containsKey("idUsuarioSlot")) {
+            Long idSlot = ((Number) data.get("idUsuarioSlot")).longValue();
+            operario = usuarioOperativoRepo.findById(idSlot).orElse(null);
+            
+            // Backup: Si la terminal no tenía el programa directo, lo sacamos del Operario
+            if (programa == null && operario != null && operario.getPrograma() != null) {
+                programa = operario.getPrograma();
+            }
+        }
+
+        // 4. APERTURA DE LA CUENTA
+        if (List.of("MESA_ABIERTA", "DUELO_INICIADO").contains(tipoEvento)) {
+            Pedido pedido = pedidoRepo.findByEmpresaAndMesaAndEstado(empresa, mesa, "ABIERTA")
+                    .orElse(new Pedido());
+
+            if (pedido.getIdPedido() == null) {
+                pedido.setEmpresa(empresa);
+                pedido.setMesa(mesa);
+                pedido.setEstado("ABIERTA");
+                pedido.setFechaApertura(fechaTransaccion); 
+                
+                // 🔥 ASIGNACIONES PARA CUMPLIR CON LA BASE DE DATOS
+                pedido.setPrograma(programa);
+                pedido.setTerminal(terminal);
+                pedido.setOperario(operario);
+                pedido.setTipoComanda(tipoEvento); // "DUELO_INICIADO", "DESPACHO_MESA", etc.
+                
+                pedido.setTotalCalculado(BigDecimal.ZERO);
+                pedidoRepo.save(pedido);
+            }
+        }
+
+        // 5. AGREGAR PRODUCTOS AL CARRITO (Y AUTO-APERTURA)
+        if (List.of("DESPACHO_MESA", "PEDIDO_DIRECTO", "DESPACHO").contains(tipoEvento)) {
+            Pedido pedido = pedidoRepo.findByEmpresaAndMesaAndEstado(empresa, mesa, "ABIERTA").orElse(null);
+            
+            // Auto-Apertura inteligente por si mandan producto sin abrir mesa antes
+            if (pedido == null) {
+                pedido = new Pedido();
+                pedido.setEmpresa(empresa);
+                pedido.setMesa(mesa);
+                pedido.setEstado("ABIERTA");
+                pedido.setFechaApertura(fechaTransaccion);
+                
+                // 🔥 ASIGNACIONES PARA CUMPLIR CON LA BASE DE DATOS
+                pedido.setPrograma(programa);
+                pedido.setTerminal(terminal);
+                pedido.setOperario(operario);
+                pedido.setTipoComanda(tipoEvento); // Exactamente como viene de Android
+                
+                pedido.setTotalCalculado(BigDecimal.ZERO);
+                pedido = pedidoRepo.save(pedido); // Lo guardamos primero para generar su ID
+            }
+            
+            // Buscar al cliente destino
+            String cliente = (String) data.getOrDefault("clienteNombre", 
+                    data.getOrDefault("nombreCliente", data.getOrDefault("nombreJugador", "Desconocido")));
+
+            // Extraer y guardar los productos
+            List<Map<String, Object>> productos = (List<Map<String, Object>>) data.get("productos");
+            if (productos != null) {
+                for (Map<String, Object> p : productos) {
+                    agregarItemAlPedido(pedido, p, cliente, fechaTransaccion);
+                }
+            } else if (data.containsKey("nombre") && data.containsKey("precio")) {
+                agregarItemAlPedido(pedido, data, cliente, fechaTransaccion);
+            }
+            
+            pedidoRepo.save(pedido); 
+        }
+
+        // 6. CIERRE DE LA CUENTA
+        if ("MESA_CERRADA".equals(tipoEvento)) {
+            Pedido pedido = pedidoRepo.findByEmpresaAndMesaAndEstado(empresa, mesa, "ABIERTA").orElse(null);
+            if (pedido != null) {
+                pedido.setEstado("CERRADA");
+                pedido.setFechaCierre(fechaTransaccion);
+                
+                BigDecimal total = pedido.getDetalles().stream()
+                        .map(PedidoDetalle::getSubtotal)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                        
+                pedido.setTotalCalculado(total);
+                pedidoRepo.save(pedido);
+            }
+        }
+    }
+
+    private void agregarItemAlPedido(Pedido pedido, Map<String, Object> itemData, String cliente, LocalDateTime fecha) {
+        String nombre = (String) itemData.getOrDefault("nombre", "Item Desconocido");
+        Integer cant = itemData.containsKey("cantidad") ? Integer.parseInt(itemData.get("cantidad").toString()) : 1;
+        BigDecimal precio = itemData.containsKey("precio") ? new BigDecimal(itemData.get("precio").toString()) : BigDecimal.ZERO;
+
+        PedidoDetalle detalle = new PedidoDetalle();
+        detalle.setPedido(pedido);
+        detalle.setNombreItem(nombre);
+        detalle.setCantidad(cant);
+        detalle.setPrecioUnitario(precio);
+        detalle.setSubtotal(precio.multiply(new BigDecimal(cant)));
+        detalle.setTipoItem("PRODUCTO_FISICO"); // Por defecto
+        detalle.setDueñoEspecifico(cliente);    // ¡El enlace crucial para el Frontend React!
+        detalle.setFechaAgregado(fecha);
+
+        // Si la lista es null, la inicializamos
+        if (pedido.getDetalles() == null) {
+            pedido.setDetalles(new ArrayList<>());
+        }
+        
+        pedido.getDetalles().add(detalle);
+    }
+    
 }
