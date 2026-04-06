@@ -19,6 +19,16 @@ public class TerminalDispositivo {
     @JoinColumn(name = "sp_ideregistro", nullable = false)
     @JsonIgnore
     private SuscripcionPrograma suscripcion;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "emp_ideregistro")
+    @JsonIgnore
+    private Empresa empresa;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pro_ideregistro")
+    @JsonIgnore
+    private Programa programa;
 
     // --- IDENTIFICACIÓN TÉCNICA Y SEGURIDAD ---
     @Column(name = "td_uuid_hardware", nullable = false, unique = true)

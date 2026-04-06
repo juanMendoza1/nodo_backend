@@ -47,4 +47,8 @@ public class UsuarioOperativo {
     
     @Column(name = "uop_fecha_bloqueo")
     private LocalDateTime fechaBloqueo;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pro_ideregistro")
+    private Programa programa;
 }

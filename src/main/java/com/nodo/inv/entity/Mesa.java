@@ -45,4 +45,8 @@ public class Mesa {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "uop_ideregistro")
     private UsuarioOperativo usuarioActual; 
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pro_ideregistro")
+    private Programa programa;
 }

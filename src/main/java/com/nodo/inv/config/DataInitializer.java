@@ -69,11 +69,9 @@ public class DataInitializer implements CommandLineRunner {
             Tercero terEmpNodo = crearTerceroBasic("9001", "Sistemas", "Nodo", "contacto@nodo.com");
             Empresa empNodo = crearEmpresaBasic(terEmpNodo, "SISTEMAS NODO", giroZapa);
             
-            // 🔥 SOLUCIÓN: Vinculamos los programas a la Empresa 1
             vincularPrograma(empNodo, progInv);
             vincularPrograma(empNodo, progPos);
 
-            // 🔥 SOLUCIÓN: Le damos una suscripción a la Empresa 1 para que tenga cupos
             SuscripcionPrograma subNodoInv = new SuscripcionPrograma();
             subNodoInv.setEmpresa(empNodo);
             subNodoInv.setPrograma(progInv);
@@ -118,9 +116,11 @@ public class DataInitializer implements CommandLineRunner {
             subDiegoPos.setActivo(true);
             suscripcionProgramaRepository.save(subDiegoPos);
 
-            // Registro de la Tablet de prueba (Vinculada a INV temporalmente)
+            // 🔥 NUEVO: Registro de la Tablet inyectando EMPRESA y PROGRAMA directos
             TerminalDispositivo tablet1 = new TerminalDispositivo();
             tablet1.setSuscripcion(subDiegoInv); 
+            tablet1.setEmpresa(empDiego);        // <-- Ahora la tablet sabe de qué empresa es sin joins raros
+            tablet1.setPrograma(progInv);        // <-- Y sabe que pertenece al módulo de inventario
             tablet1.setUuidHardware("809fca6bebd005e2");
             tablet1.setAlias("Tablet Motorola G84");
             tablet1.setFechaRegistro(LocalDateTime.now());
@@ -128,10 +128,11 @@ public class DataInitializer implements CommandLineRunner {
             terminalDispositivoRepository.save(tablet1);
 
             // 7. CREACIÓN DE SLOTS OPERATIVOS
-            crearSlot(empDiego, "MESERO ALEJO", "M1_ALEJO", "1234", opRol);
-            crearSlot(empDiego, "CAJERO CARLOS", "C1_CARLOS", "5555", opRol);
-            crearSlot(empDiego, "BARTENDER LUCIA", "B1_LUCIA", "0000", opRol);
-            crearSlot(empDiego, "MESERO PEDRO", "M2_PEDRO", "4321", opRol);
+            // 🔥 NUEVO: Ahora inyectamos el progPos a los meseros, porque ellos operan el Punto de Venta
+            crearSlot(empDiego, progPos, "MESERO ALEJO", "M1_ALEJO", "1234", opRol);
+            crearSlot(empDiego, progPos, "CAJERO CARLOS", "C1_CARLOS", "5555", opRol);
+            crearSlot(empDiego, progPos, "BARTENDER LUCIA", "B1_LUCIA", "0000", opRol);
+            crearSlot(empDiego, progPos, "MESERO PEDRO", "M2_PEDRO", "4321", opRol);
 
             // 8. MOTOR DE PARÁMETROS: CLASE -> ESTRUCTURA -> UNIDAD
             Clase claseInv = checkAndCreateClase("INVENTARIO", "INV");
@@ -159,7 +160,8 @@ public class DataInitializer implements CommandLineRunner {
             System.out.println("🚀 PRUEBA COMPLETA LISTA (INCLUYE POS E INV)");
             System.out.println("🏢 Empresa: BILLARES DIEGO (ID: " + empDiego.getId() + ")");
             System.out.println("📦 Catálogo de productos sincronizado.");
-            System.out.println("👥 4 Slots creados.");
+            System.out.println("👥 4 Slots creados (Vinculados a Módulo POS).");
+            System.out.println("📱 1 Tablet creada (Vinculada a Módulo INV).");
             System.out.println("-----------------------------------------");
         }
     }
@@ -213,9 +215,11 @@ public class DataInitializer implements CommandLineRunner {
         productoRepository.save(p);
     }
 
-    private void crearSlot(Empresa emp, String alias, String login, String pin, Rol rol) {
+    // 🔥 NUEVO: Agregamos el parámetro Programa a la función helper
+    private void crearSlot(Empresa emp, Programa prog, String alias, String login, String pin, Rol rol) {
         UsuarioOperativo op = new UsuarioOperativo();
         op.setEmpresa(emp);
+        op.setPrograma(prog); // <-- Guardamos la relación
         op.setAlias(alias);
         op.setLogin(login);
         op.setPassword(passwordEncoder.encode(pin));
