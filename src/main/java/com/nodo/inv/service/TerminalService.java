@@ -49,6 +49,8 @@ public class TerminalService {
 
                 // 4. Registrar la nueva terminal
                 datosTablet.setSuscripcion(suscripcion);
+                datosTablet.setEmpresa(suscripcion.getEmpresa());
+                datosTablet.setPrograma(suscripcion.getPrograma());
                 datosTablet.setFechaRegistro(LocalDateTime.now());
                 datosTablet.setUltimoAcceso(LocalDateTime.now());
                 datosTablet.setBloqueado(false);
