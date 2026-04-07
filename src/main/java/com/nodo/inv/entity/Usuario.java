@@ -36,8 +36,7 @@ public class Usuario {
     private LocalDateTime fechaActivacion;
     
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "emp_ideregistro", nullable = false)
-    @JsonIgnore
+    @JoinColumn(name = "emp_ideregistro", nullable = false)    
     private Empresa empresa;
 
     // getters y setters

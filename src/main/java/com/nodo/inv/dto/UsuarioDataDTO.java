@@ -12,6 +12,7 @@ public class UsuarioDataDTO {
     // Objetos anidados que envía el SearchableSelect desde React
     private RelacionDTO tercero;
     private RelacionDTO empresa;
+    private Long rolId;
 
     // Clase interna para leer { id: X } de los JSON
     @Data

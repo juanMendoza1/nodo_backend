@@ -3,10 +3,10 @@ package com.nodo.inv.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nodo.inv.dto.EventoOperativoDTO;
-import com.nodo.inv.dto.ReporteEstadisticoDueloDTO;
 import com.nodo.inv.dto.SincronizacionPaqueteDTO;
 import com.nodo.inv.entity.*;
 import com.nodo.inv.repository.*;
+import com.nodo.inv.service.strategy.EventoOperativoStrategy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -17,30 +17,52 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class SyncService {
 
+    private final ActividadOperativaRepository actividadRepo;
+    private final EmpresaRepository empresaRepo;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final ObjectMapper objectMapper;
+    private final MesaRepository mesaRepo;
+    private final UsuarioOperativoRepository usuarioOperativoRepo;
+    private final DueloRepository dueloRepo;
+    private final PedidoRepository pedidoRepo;
+    private final TerminalDispositivoRepository terminalRepo;
+
+    // 🔥 EL MAPA DE ESTRATEGIAS (Patrón Strategy en O(1))
+    private final Map<String, EventoOperativoStrategy> estrategias;
+
     @Autowired
-    private ActividadOperativaRepository actividadRepo;
-    @Autowired
-    private EmpresaRepository empresaRepo;
-    @Autowired
-    private SimpMessagingTemplate messagingTemplate;
-    @Autowired
-    private ObjectMapper objectMapper;
-    @Autowired
-    private HistoricoDueloRepository historicoRepository;
-    @Autowired
-    private MesaRepository mesaRepo;
-    @Autowired
-    private UsuarioOperativoRepository usuarioOperativoRepo;
-    @Autowired
-    private DueloRepository dueloRepo;
-    @Autowired
-    private PedidoRepository pedidoRepo;
-    @Autowired
-    private TerminalDispositivoRepository terminalRepo;
+    public SyncService(
+            ActividadOperativaRepository actividadRepo,
+            EmpresaRepository empresaRepo,
+            SimpMessagingTemplate messagingTemplate,
+            ObjectMapper objectMapper,
+            MesaRepository mesaRepo,
+            UsuarioOperativoRepository usuarioOperativoRepo,
+            DueloRepository dueloRepo,
+            PedidoRepository pedidoRepo,
+            TerminalDispositivoRepository terminalRepo,
+            // 🚀 MAGIA: Spring inyecta automáticamente todas las clases que implementen esta interfaz
+            List<EventoOperativoStrategy> strategyList) {
+        
+        this.actividadRepo = actividadRepo;
+        this.empresaRepo = empresaRepo;
+        this.messagingTemplate = messagingTemplate;
+        this.objectMapper = objectMapper;
+        this.mesaRepo = mesaRepo;
+        this.usuarioOperativoRepo = usuarioOperativoRepo;
+        this.dueloRepo = dueloRepo;
+        this.pedidoRepo = pedidoRepo;
+        this.terminalRepo = terminalRepo;
+        
+        // Convertimos la lista a un Diccionario (Map) usando el tipo de evento como llave
+        this.estrategias = strategyList.stream()
+                .collect(Collectors.toMap(EventoOperativoStrategy::getTipoEvento, s -> s));
+    }
 
     @Transactional
     public Map<String, Object> procesarPaquete(SincronizacionPaqueteDTO paquete) {
@@ -76,32 +98,28 @@ public class SyncService {
             Map<String, Object> data = evento.getData();
             if (data == null) data = new HashMap<>(); 
 
-            // 🔥 3. VÍNCULO FÍSICO Y CREACIÓN ON-DEMAND (SOLUCIÓN AL N/A)
+            // 🔥 3. VÍNCULO FÍSICO Y CREACIÓN ON-DEMAND
             if (data.containsKey("idMesa")) {
                 try {
                     Integer idMesaLocal = ((Number) data.get("idMesa")).intValue();
-                    
-                    // Buscamos si la mesa ya existe en la base de datos del servidor
                     Optional<Mesa> mesaOpt = mesaRepo.findByEmpresaIdAndIdMesaLocal(empresa.getId(), idMesaLocal);
                     
                     Mesa mesaEntity;
                     if (mesaOpt.isPresent()) {
                         mesaEntity = mesaOpt.get();
                     } else if ("MESA_CREADA".equals(evento.getTipoEvento())) {
-                        // Si el evento es creación y no existe en pos_mesa, la insertamos ahora
                         mesaEntity = new Mesa();
                         mesaEntity.setEmpresa(empresa);
                         mesaEntity.setIdMesaLocal(idMesaLocal);
                         mesaEntity.setNombre("Mesa " + idMesaLocal);
                         mesaEntity.setEstado("DISPONIBLE");
                         mesaEntity = mesaRepo.save(mesaEntity); 
-                        System.out.println("Mesa " + idMesaLocal + " creada físicamente en base de datos.");
                     } else {
                         mesaEntity = null;
                     }
 
                     if (mesaEntity != null) {
-                        actividad.setMesa(mesaEntity); // Se vincula para la columna mes_ideregistro
+                        actividad.setMesa(mesaEntity);
                     }
                 } catch (Exception e) {
                     System.err.println("Error procesando vinculación de mesa: " + e.getMessage());
@@ -130,11 +148,11 @@ public class SyncService {
                 actividad.setDetallesJson("{}");
             }
 
-            // 🛡️ 6. GUARDADO DE ACTIVIDAD (Con mesa ya vinculada)
+            // 🛡️ 6. GUARDADO DE ACTIVIDAD
             actividad = actividadRepo.save(actividad); 
             procesados++;
 
-            // ⚡ 7. LÓGICA DE NEGOCIO (Actualiza estados de Mesa/Duelo en BD)
+            // ⚡ 7. LÓGICA DE NEGOCIO (Patrón Strategy + Comanda)
             ejecutarLogicaDeNegocio(actividad, data);
 
             // 📡 8. NOTIFICACIÓN MONITOR OPERATIVO (WebSockets)
@@ -158,160 +176,22 @@ public class SyncService {
         return respuesta;
     }
 
-private void ejecutarLogicaDeNegocio(ActividadOperativa actividad, Map<String, Object> data) {
+    private void ejecutarLogicaDeNegocio(ActividadOperativa actividad, Map<String, Object> data) {
         
-        // 1. Ejecutar Lógica de Estado de Mesas (Lo que ya tenías)
-        switch (actividad.getTipoEvento()) {
-            case "MESA_CREADA":
-                registrarMesaFisica(actividad, data);
-                break;
-            case "MESA_ABIERTA":
-            case "CLIENTE_NUEVO": 
-                prepararMesa(actividad, data);
-                break;
-            case "DUELO_INICIADO":
-                iniciarDuelo(actividad, data);
-                break;
-            case "MESA_CERRADA":
-                liberarMesa(actividad, data);
-                break;
-            case "DUELO_FINALIZADO_ESTADISTICO":
-                procesarYGuardarEstadisticas(actividad, data);
-                finalizarDueloYMantenerMesa(actividad, data);
-                break;
+        // 1. BUSCAMOS Y EJECUTAMOS LA ESTRATEGIA (Si existe una clase para este evento)
+        EventoOperativoStrategy estrategia = estrategias.get(actividad.getTipoEvento());
+        if (estrategia != null) {
+            estrategia.procesar(actividad, data);
         }
 
-        // 2. 🔥 NUEVA LÓGICA: GESTIÓN TRANSACCIONAL DEL PEDIDO (COMANDA)
-        // Esto creará y llenará el ticket en vivo en la base de datos
+        // 2. GESTIÓN TRANSACCIONAL DEL PEDIDO (COMANDA)
+        // La dejamos aquí porque es transversal a múltiples eventos (apertura, despacho, cierre)
         gestionarComandaTransaccional(actividad, data);
-    }
-
-    // =========================================================================
-    // LÓGICA DE ESTADOS PERSISTENTES
-    // =========================================================================
-
-    private void registrarMesaFisica(ActividadOperativa actividad, Map<String, Object> data) {
-        if (actividad.getMesa() == null) return;
-        Mesa mesa = actividad.getMesa();
-        mesa.setEstado("DISPONIBLE");
-        mesa.setTarifaTiempo(null);
-        mesa.setFechaApertura(null);
-        mesa.setFechaCierre(null);
-        mesa.setTipoJuego(null);
-        if (data != null && data.containsKey("idUsuarioSlot")) {
-            Long idSlot = ((Number) data.get("idUsuarioSlot")).longValue();
-            usuarioOperativoRepo.findById(idSlot).ifPresent(mesa::setUsuarioActual);
-        } else {
-            mesa.setUsuarioActual(null);
-        }
-        mesaRepo.save(mesa);
-        notificarMonitorWeb(mesa, data);
-    }
-
-    private void prepararMesa(ActividadOperativa actividad, Map<String, Object> data) {
-        if (actividad.getMesa() == null) return;
-        Mesa mesa = actividad.getMesa();
-        mesa.setEstado("ABIERTO");
         
-        // 🔥 PERSISTENCIA: La mesa memoriza el juego para evitar "N/A" al recargar
-        if (data != null && data.containsKey("tipoJuego")) {
-            mesa.setTipoJuego(data.get("tipoJuego").toString());
+        // 3. NOTIFICACIÓN WEBSOCKET
+        if (actividad.getMesa() != null) {
+            notificarMonitorWeb(actividad.getMesa(), data);
         }
-        
-        if (data != null && data.containsKey("idUsuarioSlot")) {
-            Long idSlot = ((Number) data.get("idUsuarioSlot")).longValue();
-            usuarioOperativoRepo.findById(idSlot).ifPresent(mesa::setUsuarioActual);
-        }
-        mesaRepo.save(mesa);
-        notificarMonitorWeb(mesa, data);
-    }
-
-    private void iniciarDuelo(ActividadOperativa actividad, Map<String, Object> data) {
-        if (actividad.getMesa() == null) return;
-
-        if (actividad.getDuelo() != null) {
-            Duelo duelo = actividad.getDuelo();
-            duelo.setEstado("EN_CURSO");
-            duelo.setFechaInicio(actividad.getFechaDispositivo());
-            if (data.containsKey("tipoJuego")) duelo.setTipoJuego(data.get("tipoJuego").toString());
-            if (data.containsKey("reglaDuelo")) duelo.setReglaDuelo(data.get("reglaDuelo").toString());
-            if (data.containsKey("tarifaTiempo") && data.get("tarifaTiempo") != null) {
-                duelo.setTarifaTiempo(new BigDecimal(data.get("tarifaTiempo").toString()));
-            }
-            if (data.containsKey("idUsuarioSlot")) {
-                Long idSlot = ((Number) data.get("idUsuarioSlot")).longValue();
-                usuarioOperativoRepo.findById(idSlot).ifPresent(duelo::setUsuarioOperativo);
-            }
-            dueloRepo.save(duelo);
-        }
-
-        Mesa mesa = actividad.getMesa();
-        mesa.setEstado("OCUPADA");
-        mesa.setFechaApertura(actividad.getFechaDispositivo());
-        
-        // 🔥 PERSISTENCIA: Sincroniza el juego actual en la mesa
-        if (data != null && data.containsKey("tipoJuego")) {
-            mesa.setTipoJuego(data.get("tipoJuego").toString());
-        }
-        
-        if (data != null && data.containsKey("idUsuarioSlot")) {
-            Long idSlot = ((Number) data.get("idUsuarioSlot")).longValue();
-            usuarioOperativoRepo.findById(idSlot).ifPresent(mesa::setUsuarioActual);
-        }
-        mesaRepo.save(mesa);
-        notificarMonitorWeb(mesa, data);
-    }
-
-    private void finalizarDueloYMantenerMesa(ActividadOperativa actividad, Map<String, Object> data) {
-        if (actividad.getMesa() == null) return;
-        Mesa mesa = actividad.getMesa();
-        mesa.setEstado("ABIERTO"); // Regresa a Naranja (En espera de otro cliente o juego)
-        mesa.setFechaApertura(null); 
-        mesaRepo.save(mesa);
-
-        dueloRepo.findByMesaAndEstado(mesa, "EN_CURSO").ifPresent(dueloActivo -> {
-            dueloActivo.setEstado("FINALIZADO");
-            dueloActivo.setFechaFin(actividad.getFechaDispositivo());
-            dueloRepo.save(dueloActivo);
-        });
-
-        notificarMonitorWeb(mesa, data);
-    }
-
-    private void liberarMesa(ActividadOperativa actividad, Map<String, Object> data) {
-        if (actividad.getMesa() == null) return;
-        Mesa mesa = actividad.getMesa();
-        mesa.setEstado("DISPONIBLE"); // Se apaga la mesa por completo (Click Sostenido Tablet)
-        mesa.setFechaCierre(actividad.getFechaDispositivo());
-        mesa.setUsuarioActual(null);
-        mesa.setTarifaTiempo(null);
-        mesa.setFechaApertura(null);
-        mesa.setTipoJuego(null);
-        mesaRepo.save(mesa);
-
-        dueloRepo.findByMesaAndEstado(mesa, "EN_CURSO").ifPresent(dueloActivo -> {
-            dueloActivo.setEstado("FINALIZADO");
-            dueloActivo.setFechaFin(actividad.getFechaDispositivo());
-            dueloRepo.save(dueloActivo);
-        });
-
-        notificarMonitorWeb(mesa, data);
-    }
-
-    private void procesarYGuardarEstadisticas(ActividadOperativa actividad, Map<String, Object> data) {
-        try {
-            ReporteEstadisticoDueloDTO reporteDto = objectMapper.convertValue(data, ReporteEstadisticoDueloDTO.class);
-            if (historicoRepository.existsByUuidDuelo(reporteDto.getUuidDuelo())) return;
-            HistoricoDuelo historico = new HistoricoDuelo();
-            historico.setUuidDuelo(reporteDto.getUuidDuelo());
-            historico.setIdMesa(reporteDto.getIdMesa());
-            historico.setTipoJuego(reporteDto.getTipoJuego());
-            historico.setFechaFinalizacion(LocalDateTime.now());
-            historico.setEmpresa(actividad.getEmpresa());
-            historico.setDetalleJson(objectMapper.writeValueAsString(reporteDto));
-            historicoRepository.save(historico);
-            messagingTemplate.convertAndSend("/topic/duelos/" + actividad.getEmpresa().getId(), reporteDto);
-        } catch (Exception e) {}
     }
 
     private void notificarMonitorWeb(Mesa mesa, Map<String, Object> data) {
@@ -321,7 +201,6 @@ private void ejecutarLogicaDeNegocio(ActividadOperativa actividad, Map<String, O
         statusPayload.put("fechaApertura", mesa.getFechaApertura());
         statusPayload.put("tarifaTiempo", mesa.getTarifaTiempo());
 
-        // 🔥 CORRECCIÓN: Leemos el juego directamente desde la entidad persistida
         if (mesa.getTipoJuego() != null) {
             statusPayload.put("tipoJuego", mesa.getTipoJuego());
         }
@@ -342,33 +221,26 @@ private void ejecutarLogicaDeNegocio(ActividadOperativa actividad, Map<String, O
         Mesa mesa = actividad.getMesa();
         Empresa empresa = actividad.getEmpresa();
 
-        if (mesa == null) return; // Por ahora requiere mesa
+        if (mesa == null) return; 
 
-        // 1. LA FECHA EXACTA DE LA TABLET
         LocalDateTime fechaTransaccion = Instant.ofEpochMilli(actividad.getFechaDispositivo())
                                                 .atZone(ZoneId.systemDefault())
                                                 .toLocalDateTime();
 
-        // 🔥 2. CAPTURAR LA TERMINAL Y EL PROGRAMA (¡La solución al error!)
         TerminalDispositivo terminal = null;
         Programa programa = null; 
         
         if (actividad.getTerminalUuid() != null) {
             terminal = terminalRepo.findByUuidHardware(actividad.getTerminalUuid()).orElse(null);
-            
-            // Si la terminal existe, sacamos el programa al que pertenece
             if (terminal != null) {
-                programa = terminal.getPrograma(); // Asumiendo que TerminalDispositivo tiene getPrograma()
+                programa = terminal.getPrograma();
             }
         }
 
-        // 3. CAPTURAR EL OPERARIO QUE ATENDIÓ
         UsuarioOperativo operario = null;
         if (data.containsKey("idUsuarioSlot")) {
             Long idSlot = ((Number) data.get("idUsuarioSlot")).longValue();
             operario = usuarioOperativoRepo.findById(idSlot).orElse(null);
-            
-            // Backup: Si la terminal no tenía el programa directo, lo sacamos del Operario
             if (programa == null && operario != null && operario.getPrograma() != null) {
                 programa = operario.getPrograma();
             }
@@ -384,45 +256,35 @@ private void ejecutarLogicaDeNegocio(ActividadOperativa actividad, Map<String, O
                 pedido.setMesa(mesa);
                 pedido.setEstado("ABIERTA");
                 pedido.setFechaApertura(fechaTransaccion); 
-                
-                // 🔥 ASIGNACIONES PARA CUMPLIR CON LA BASE DE DATOS
                 pedido.setPrograma(programa);
                 pedido.setTerminal(terminal);
                 pedido.setOperario(operario);
-                pedido.setTipoComanda(tipoEvento); // "DUELO_INICIADO", "DESPACHO_MESA", etc.
-                
+                pedido.setTipoComanda(tipoEvento); 
                 pedido.setTotalCalculado(BigDecimal.ZERO);
                 pedidoRepo.save(pedido);
             }
         }
 
-        // 5. AGREGAR PRODUCTOS AL CARRITO (Y AUTO-APERTURA)
+        // 5. AGREGAR PRODUCTOS AL CARRITO 
         if (List.of("DESPACHO_MESA", "PEDIDO_DIRECTO", "DESPACHO").contains(tipoEvento)) {
             Pedido pedido = pedidoRepo.findByEmpresaAndMesaAndEstado(empresa, mesa, "ABIERTA").orElse(null);
-            
-            // Auto-Apertura inteligente por si mandan producto sin abrir mesa antes
             if (pedido == null) {
                 pedido = new Pedido();
                 pedido.setEmpresa(empresa);
                 pedido.setMesa(mesa);
                 pedido.setEstado("ABIERTA");
                 pedido.setFechaApertura(fechaTransaccion);
-                
-                // 🔥 ASIGNACIONES PARA CUMPLIR CON LA BASE DE DATOS
                 pedido.setPrograma(programa);
                 pedido.setTerminal(terminal);
                 pedido.setOperario(operario);
-                pedido.setTipoComanda(tipoEvento); // Exactamente como viene de Android
-                
+                pedido.setTipoComanda(tipoEvento);
                 pedido.setTotalCalculado(BigDecimal.ZERO);
-                pedido = pedidoRepo.save(pedido); // Lo guardamos primero para generar su ID
+                pedido = pedidoRepo.save(pedido); 
             }
             
-            // Buscar al cliente destino
             String cliente = (String) data.getOrDefault("clienteNombre", 
                     data.getOrDefault("nombreCliente", data.getOrDefault("nombreJugador", "Desconocido")));
 
-            // Extraer y guardar los productos
             List<Map<String, Object>> productos = (List<Map<String, Object>>) data.get("productos");
             if (productos != null) {
                 for (Map<String, Object> p : productos) {
@@ -463,16 +325,13 @@ private void ejecutarLogicaDeNegocio(ActividadOperativa actividad, Map<String, O
         detalle.setCantidad(cant);
         detalle.setPrecioUnitario(precio);
         detalle.setSubtotal(precio.multiply(new BigDecimal(cant)));
-        detalle.setTipoItem("PRODUCTO_FISICO"); // Por defecto
-        detalle.setDueñoEspecifico(cliente);    // ¡El enlace crucial para el Frontend React!
+        detalle.setTipoItem("PRODUCTO_FISICO");
+        detalle.setDueñoEspecifico(cliente);
         detalle.setFechaAgregado(fecha);
 
-        // Si la lista es null, la inicializamos
         if (pedido.getDetalles() == null) {
             pedido.setDetalles(new ArrayList<>());
         }
-        
         pedido.getDetalles().add(detalle);
     }
-    
 }

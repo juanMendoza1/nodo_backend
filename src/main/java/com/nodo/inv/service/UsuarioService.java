@@ -3,11 +3,15 @@ package com.nodo.inv.service;
 import com.nodo.inv.Utils.EstadoUsuario;
 import com.nodo.inv.dto.UsuarioDataDTO;
 import com.nodo.inv.entity.Empresa;
+import com.nodo.inv.entity.Rol;
 import com.nodo.inv.entity.Tercero;
 import com.nodo.inv.entity.Usuario;
+import com.nodo.inv.entity.UsuarioRol;
 import com.nodo.inv.repository.EmpresaRepository;
+import com.nodo.inv.repository.RolRepository;
 import com.nodo.inv.repository.TerceroRepository;
 import com.nodo.inv.repository.UsuarioRepository;
+import com.nodo.inv.repository.UsuarioRolRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -23,8 +27,11 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final TerceroRepository terceroRepository;
     private final EmpresaRepository empresaRepository;
-    // 🔥 IMPORTANTE: Inyectamos el encriptador
     private final PasswordEncoder passwordEncoder; 
+    
+    // 🔥 NUEVOS REPOSITORIOS INYECTADOS
+    private final RolRepository rolRepository;
+    private final UsuarioRolRepository usuarioRolRepository;
 
     public List<Usuario> obtenerTodos() {
         return usuarioRepository.findAll();
@@ -38,22 +45,16 @@ public class UsuarioService {
             usuario = usuarioRepository.findById(dto.getId())
                     .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
             
-            // 🔥 TRATO ESPECIAL DE LA CONTRASEÑA EN EDICIÓN
             if (dto.getPassword() != null && !dto.getPassword().trim().isEmpty()) {
-                // Si mandaron contraseña, la encriptamos y la seteamos
                 usuario.setPassword(passwordEncoder.encode(dto.getPassword()));
             }
-            // Si vino vacía, simplemente no hacemos nada y conserva su hash actual en la BD.
-            
         } else {
-            // Creación
             if (usuarioRepository.findByLogin(dto.getLogin()).isPresent()) {
                 throw new RuntimeException("El login ya está en uso");
             }
             usuario = new Usuario();
             usuario.setFechaActivacion(LocalDateTime.now());
             
-            // 🔥 TRATO ESPECIAL EN CREACIÓN: Es obligatoria
             if (dto.getPassword() == null || dto.getPassword().trim().isEmpty()) {
                 throw new RuntimeException("La contraseña es obligatoria para nuevos usuarios");
             }
@@ -63,21 +64,39 @@ public class UsuarioService {
         usuario.setLogin(dto.getLogin());
         usuario.setEstado(EstadoUsuario.valueOf(dto.getEstado()));
 
-        // Asignar Tercero (Persona real)
         if (dto.getTercero() != null && dto.getTercero().getId() != null) {
             Tercero tercero = terceroRepository.findById(dto.getTercero().getId())
                     .orElseThrow(() -> new RuntimeException("El Tercero no existe"));
             usuario.setTercero(tercero);
         }
 
-        // Asignar Empresa (Tenant)
         if (dto.getEmpresa() != null && dto.getEmpresa().getId() != null) {
             Empresa empresa = empresaRepository.findById(dto.getEmpresa().getId())
                     .orElseThrow(() -> new RuntimeException("La Empresa no existe"));
             usuario.setEmpresa(empresa);
         }
 
-        return usuarioRepository.save(usuario);
+        // 1. Guardamos el usuario primero para que tenga un ID
+        usuario = usuarioRepository.save(usuario);
+
+        // 🔥 2. GESTIÓN DEL ROL
+        if (dto.getRolId() != null) {
+            // Limpiamos los roles viejos por si es una edición
+            List<UsuarioRol> rolesActuales = usuarioRolRepository.findByUsuario(usuario);
+            usuarioRolRepository.deleteAll(rolesActuales);
+
+            // Asignamos el nuevo rol
+            Rol rol = rolRepository.findById(dto.getRolId())
+                    .orElseThrow(() -> new RuntimeException("Rol no encontrado"));
+            
+            UsuarioRol nuevoRol = new UsuarioRol();
+            nuevoRol.setUsuario(usuario);
+            nuevoRol.setRol(rol);
+            nuevoRol.setFechaCreacion(LocalDateTime.now());
+            usuarioRolRepository.save(nuevoRol);
+        }
+
+        return usuario;
     }
 
     @Transactional

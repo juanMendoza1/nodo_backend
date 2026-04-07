@@ -60,6 +60,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/usuarios/empresa/**").permitAll() 
                 .requestMatchers("/api/usuarios/login-tablet/**").permitAll()
                 
+                .requestMatchers("/error").permitAll()
+                
                 // Rutas Protegidas
                 .requestMatchers("/api/productos/**").hasAnyRole("OPERATIVO", "ADMIN", "SUPER")
                 .requestMatchers("/api/inventario/despacho-mesa/**").hasAnyRole("OPERATIVO", "ADMIN")
