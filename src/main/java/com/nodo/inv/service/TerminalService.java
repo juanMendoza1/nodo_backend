@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -81,9 +82,19 @@ public class TerminalService {
 
     @Transactional(readOnly = true)
     public TerminalCupoDTO consultarCuposDisponibles(Long empresaId, String programaCod) {
-        SuscripcionPrograma sub = suscripcionRepository.findByEmpresaIdAndProgramaCodigo(empresaId, programaCod)
-                .orElseThrow(() -> new RuntimeException("No existe una suscripción activa para este programa"));
+        // En lugar de lanzar excepción, usamos Optional
+        var subOpt = suscripcionRepository.findByEmpresaIdAndProgramaCodigo(empresaId, programaCod);
 
+        // Si no existe la suscripción o está inactiva, devolvemos 0 cupos
+        if (subOpt.isEmpty() || !subOpt.get().getActivo()) {
+            return TerminalCupoDTO.builder()
+                    .maxDispositivos(0)
+                    .dispositivosActivos(0)
+                    .disponibles(0)
+                    .build();
+        }
+
+        SuscripcionPrograma sub = subOpt.get();
         return TerminalCupoDTO.builder()
                 .maxDispositivos(sub.getMaxDispositivos())
                 .dispositivosActivos(sub.getDispositivosActivos())
@@ -176,5 +187,17 @@ public class TerminalService {
         terminalRepository.delete(terminal);
     }
     
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> consultarCuposPorEmpresa(Long empresaId) {
+        List<SuscripcionPrograma> suscripciones = suscripcionRepository.findByEmpresaIdAndActivoTrue(empresaId);
+
+        return suscripciones.stream().map(sub -> Map.<String, Object>of(
+                "programaCod", sub.getPrograma().getCodigo(),
+                "programaNombre", sub.getPrograma().getNombre(),
+                "maxDispositivos", sub.getMaxDispositivos(),
+                "dispositivosActivos", sub.getDispositivosActivos(),
+                "disponibles", sub.getMaxDispositivos() - sub.getDispositivosActivos()
+        )).toList();
+    }   
     
 }

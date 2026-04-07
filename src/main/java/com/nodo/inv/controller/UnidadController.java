@@ -1,3 +1,4 @@
+// src/main/java/com/nodo/inv/controller/UnidadController.java
 package com.nodo.inv.controller;
 
 import com.nodo.inv.dto.UnidadDTO;
@@ -18,9 +19,12 @@ public class UnidadController {
 
     private final UnidadService unidadService;
 
-    @GetMapping("/estructura/{codigo}")
-    public ResponseEntity<List<Unidad>> listarPorEstructura(@PathVariable String codigo) {
-        return ResponseEntity.ok(unidadService.obtenerPorEstructura(codigo));
+    // 🔥 NUEVO: Requiere la empresa por URL
+    @GetMapping("/estructura/{codigo}/empresa/{empresaId}")
+    public ResponseEntity<List<Unidad>> listarPorEstructuraYEmpresa(
+            @PathVariable String codigo, 
+            @PathVariable Long empresaId) {
+        return ResponseEntity.ok(unidadService.obtenerPorEstructuraYEmpresa(codigo, empresaId));
     }
 
     @PostMapping
@@ -45,6 +49,7 @@ public class UnidadController {
     }
     
     @GetMapping
+    @PreAuthorize("hasRole('SUPER')")
     public ResponseEntity<List<Unidad>> listarTodas() {
         return ResponseEntity.ok(unidadService.obtenerTodas());
     }

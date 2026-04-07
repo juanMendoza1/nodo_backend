@@ -161,4 +161,14 @@ public class TerminalController {
         }
     }
     
+    @GetMapping("/cupos-empresa/{empresaId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<?> obtenerCuposEmpresa(@PathVariable Long empresaId) {
+        try {
+            return ResponseEntity.ok(terminalService.consultarCuposPorEmpresa(empresaId));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+    
 }

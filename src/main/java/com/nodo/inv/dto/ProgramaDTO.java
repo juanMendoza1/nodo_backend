@@ -1,5 +1,7 @@
 package com.nodo.inv.dto;
 
+import java.util.List;
+
 import lombok.Data;
 
 @Data
@@ -10,4 +12,6 @@ public class ProgramaDTO {
     private String descripcion;
     private String version;
     private Boolean activo;
+    private List<Long> permisosIds; 
+    private List<String> permisosCodigos;
 }

@@ -65,21 +65,9 @@ public class DataInitializer implements CommandLineRunner {
             return estructuraRepository.save(e);
         });
 
-        // UNIDADES: CC, NIT, CE
-        Unidad uniCC = unidadRepository.findByCodigo("CC").orElseGet(() -> {
-            Unidad u = new Unidad();
-            u.setCodigo("CC");
-            u.setNombre("Cédula de Ciudadanía");
-            u.setEstructura(estTipId);
-            return unidadRepository.save(u);
-        });
-        Unidad uniNIT = unidadRepository.findByCodigo("NIT").orElseGet(() -> {
-            Unidad u = new Unidad();
-            u.setCodigo("NIT");
-            u.setNombre("Número de Identificación Tributaria");
-            u.setEstructura(estTipId);
-            return unidadRepository.save(u);
-        });
+        // UNIDADES: CC, NIT, CE (Globales)
+        Unidad uniCC = checkAndCreateUnidad(estTipId, "Cédula de Ciudadanía", "CC");
+        Unidad uniNIT = checkAndCreateUnidad(estTipId, "Número de Identificación Tributaria", "NIT");
 
         // --- ESTRUCTURA: TIPO DE TERCERO ---
         Estructura estTipTer = estructuraRepository.findByCodigo("TIP_TER").orElseGet(() -> {
@@ -90,21 +78,9 @@ public class DataInitializer implements CommandLineRunner {
             return estructuraRepository.save(e);
         });
 
-        // UNIDADES: Natural, Jurídica
-        Unidad uniNatural = unidadRepository.findByCodigo("NATURAL").orElseGet(() -> {
-            Unidad u = new Unidad();
-            u.setCodigo("NATURAL");
-            u.setNombre("Persona Natural");
-            u.setEstructura(estTipTer);
-            return unidadRepository.save(u);
-        });
-        Unidad uniJuridica = unidadRepository.findByCodigo("JURIDICA").orElseGet(() -> {
-            Unidad u = new Unidad();
-            u.setCodigo("JURIDICA");
-            u.setNombre("Persona Jurídica");
-            u.setEstructura(estTipTer);
-            return unidadRepository.save(u);
-        });
+        // UNIDADES: Natural, Jurídica (Globales)
+        Unidad uniNatural = checkAndCreateUnidad(estTipTer, "Persona Natural", "NATURAL");
+        Unidad uniJuridica = checkAndCreateUnidad(estTipTer, "Persona Jurídica", "JURIDICA");
         
         // ==========================================
         // 2. CREACIÓN DE NEGOCIOS Y ROLES
@@ -117,12 +93,13 @@ public class DataInitializer implements CommandLineRunner {
         Rol adminRol = checkAndCreateRol("ADMIN");
         Rol opRol = checkAndCreateRol("OPERATIVO");
         
-        Permiso invView = checkAndCreatePermiso("INV_VIEW", "Ver Inventario");
-        Permiso invEdit = checkAndCreatePermiso("INV_EDIT", "Editar Inventario");
-
-        asignarPermisoARol(adminRol, invView);
-        asignarPermisoARol(adminRol, invEdit);
-        asignarPermisoARol(opRol, invView);
+        // 🔥 CREACIÓN DE FICHAS DE LEGO (Módulos del Sistema SaaS)
+        // Se guardan en base de datos para que el SuperAdmin las asigne a los Programas,
+        // pero NO se las asignamos directamente a ningún rol aquí.
+        Permiso modInventario = checkAndCreatePermiso("MOD_INVENTARIO", "Módulo de Gestión de Inventarios y Catálogo");
+        Permiso modCaja = checkAndCreatePermiso("MOD_CAJA", "Módulo de Punto de Venta y Facturación");
+        Permiso modTablets = checkAndCreatePermiso("MOD_TABLETS", "Módulo de Gestión de Dispositivos y QR");
+        Permiso modPersonal = checkAndCreatePermiso("MOD_PERSONAL", "Módulo de Gestión de Empleados y Operarios");
 
         Programa progInv = checkAndCreatePrograma("Inventario", "INV");
         Programa progPos = checkAndCreatePrograma("Punto de Venta", "POS");
@@ -131,7 +108,6 @@ public class DataInitializer implements CommandLineRunner {
         // 3. ESTRUCTURA DE JUAN (SUPER ADMIN)
         // ==========================================
         if (usuarioRepository.findByLogin("superadmin").isEmpty()) {
-            // 🔥 Le pasamos las Unidades que creamos arriba
             Tercero terJuan = crearTerceroBasic("1010", "Juan", "Admin", "juan@nodo.com", uniCC, uniNatural);
             Tercero terEmpNodo = crearTerceroBasic("9001", "Sistemas", "Nodo", "contacto@nodo.com", uniNIT, uniJuridica);
             Empresa empNodo = crearEmpresaBasic(terEmpNodo, "SISTEMAS NODO", giroZapa);
@@ -252,6 +228,7 @@ public class DataInitializer implements CommandLineRunner {
                     u.setEstructura(est);
                     u.setNombre(nombre);
                     u.setCodigo(codigo);
+                    u.setEsGlobal(true); // Se asegura de que nazca como global
                     return unidadRepository.save(u);
                 });
     }
@@ -294,7 +271,6 @@ public class DataInitializer implements CommandLineRunner {
         });
     }
 
-    // 🔥 NUEVO: Recibe las Unidades paramétricas y las amarra al Tercero
     private Tercero crearTerceroBasic(String doc, String nom, String ape, String mail, Unidad tipId, Unidad tipTer) {
         Tercero t = new Tercero();
         t.setDocumento(doc);
@@ -302,8 +278,8 @@ public class DataInitializer implements CommandLineRunner {
         t.setApellido(ape);
         t.setNombreCompleto(nom + " " + ape);
         t.setCorreo(mail);
-        t.setTipoIdentificacion(tipId); // <-- ¡Inyección!
-        t.setTipoTercero(tipTer);       // <-- ¡Inyección!
+        t.setTipoIdentificacion(tipId); 
+        t.setTipoTercero(tipTer);       
         return terceroRepository.save(t);
     }
 

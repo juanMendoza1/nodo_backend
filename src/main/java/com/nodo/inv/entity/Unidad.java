@@ -25,5 +25,12 @@ public class Unidad {
     @Column(name = "uni_nombre", nullable = false, length = 100)
     private String nombre; // Ej: "CEDULA DE CIUDADANIA", "NIT"
     
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "emp_ideregistro")
+    private Empresa empresa;
+
+    @Column(name = "uni_es_global", columnDefinition = "boolean default false")
+    private Boolean esGlobal = false;
+    
     
 }

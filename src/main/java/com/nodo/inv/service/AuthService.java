@@ -1,5 +1,6 @@
 package com.nodo.inv.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -11,9 +12,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.nodo.inv.entity.Usuario;
+import com.nodo.inv.entity.SuscripcionPrograma;
+import com.nodo.inv.entity.ProgramaPermiso;
 import com.nodo.inv.dto.*;
-import com.nodo.inv.entity.EmpresaPrograma;
 import com.nodo.inv.repository.UsuarioRepository;
+import com.nodo.inv.repository.ProgramaPermisoRepository;
+import com.nodo.inv.repository.SuscripcionProgramaRepository;
 import com.nodo.inv.jwt.JwtUtil;
 
 import lombok.RequiredArgsConstructor;
@@ -25,6 +29,10 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
     private final UsuarioRepository usuarioRepository;
+    private final ProgramaPermisoRepository programaPermisoRepository; 
+    
+    // 🔥 EL CAMBIO ESTÁ AQUÍ: Inyectamos el repositorio correcto de Suscripciones
+    private final SuscripcionProgramaRepository suscripcionProgramaRepository;
 
     @Transactional(readOnly = true)
     public LoginResponseDTO login(LoginRequestDTO request) {
@@ -39,29 +47,45 @@ public class AuthService {
 
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
-        // 2. Buscar información extendida del usuario (Empresa y Programas)
+        // 2. Buscar información extendida del usuario
         Usuario usuario = usuarioRepository.findByLogin(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("Error inesperado: Usuario no encontrado post-auth"));
 
         // 3. Generar Token JWT
         String token = jwtUtil.generateToken(userDetails);
 
-        // 4. Clasificar Roles y Permisos
+        // 4. Clasificar Roles y Permisos básicos del usuario
         List<String> roles = userDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .filter(a -> a.startsWith("ROLE_"))
                 .collect(Collectors.toList());
 
-        List<String> permisos = userDetails.getAuthorities().stream()
+        List<String> permisosBase = userDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .filter(a -> !a.startsWith("ROLE_"))
                 .collect(Collectors.toList());
 
-        // 5. Obtener Programas activos de la empresa del usuario
-        List<String> programasActivos = usuario.getEmpresa().getProgramasContratados().stream()
-                .filter(ep -> ep.getEstado()) // Solo los que están activos (true)
-                .map(ep -> ep.getPrograma().getCodigo())
-                .collect(Collectors.toList());
+        // 🔥 5. LA MAGIA CORREGIDA: Leemos de la tabla de Suscripciones (Lo que hace el SuperAdmin)
+        List<String> modulosSuscritos = new ArrayList<>();
+        List<String> codigosProgramas = new ArrayList<>();
+        
+        List<SuscripcionPrograma> suscripcionesActivas = suscripcionProgramaRepository
+                .findByEmpresaIdAndActivoTrue(usuario.getEmpresa().getId());
+
+        for (SuscripcionPrograma sub : suscripcionesActivas) {
+            codigosProgramas.add(sub.getPrograma().getCodigo());
+            
+            // Buscamos los permisos (MOD_INVENTARIO, etc.) asociados a cada programa
+            List<ProgramaPermiso> pps = programaPermisoRepository.findByPrograma(sub.getPrograma());
+            for (ProgramaPermiso pp : pps) {
+                modulosSuscritos.add(pp.getPermiso().getCodigo());
+            }
+        }
+
+        // Unimos permisos base + módulos contratados (sin duplicados)
+        List<String> permisosFinales = new ArrayList<>(permisosBase);
+        permisosFinales.addAll(modulosSuscritos);
+        permisosFinales = permisosFinales.stream().distinct().collect(Collectors.toList());
 
         // 6. Construir respuesta final
         return LoginResponseDTO.builder()
@@ -71,8 +95,8 @@ public class AuthService {
                 .empresaId(usuario.getEmpresa().getId())
                 .nombreEmpresa(usuario.getEmpresa().getNombreComercial())
                 .roles(roles)
-                .permisos(permisos)
-                .programas(programasActivos)
+                .permisos(permisosFinales) 
+                .programas(codigosProgramas)
                 .build();
     }
 }

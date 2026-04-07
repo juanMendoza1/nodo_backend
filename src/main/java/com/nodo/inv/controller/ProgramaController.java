@@ -18,9 +18,8 @@ public class ProgramaController {
 
     private final ProgramaService programaService;
 
-    // Cualquier usuario logueado (o al menos los administradores) deberían poder ver el catálogo
     @GetMapping
-    public ResponseEntity<List<Programa>> listarTodos() {
+    public ResponseEntity<List<ProgramaDTO>> listarTodos() {
         return ResponseEntity.ok(programaService.obtenerTodos());
     }
 
