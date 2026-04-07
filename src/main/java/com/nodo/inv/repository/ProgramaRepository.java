@@ -8,4 +8,5 @@ import java.util.Optional;
 @Repository
 public interface ProgramaRepository extends JpaRepository<Programa, Long> {
     Optional<Programa> findByCodigo(String codigo);
+    boolean existsByCodigo(String codigo);
 }

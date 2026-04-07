@@ -53,4 +53,8 @@ public class UnidadService {
             throw new RuntimeException("No se puede eliminar este parámetro porque ya está siendo usado por uno o más productos.");
         }
     }
+    
+    public List<Unidad> obtenerTodas() {
+        return unidadRepository.findAll();
+    }
 }

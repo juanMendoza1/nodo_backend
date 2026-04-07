@@ -42,12 +42,77 @@ public class DataInitializer implements CommandLineRunner {
     @Transactional
     public void run(String... args) throws Exception {
         
-        // 1. CREACIÓN DE GIROS DE NEGOCIO
+        // ==========================================
+        // 1. INYECCIÓN DEL MOTOR PARAMÉTRICO
+        // ==========================================
+        
+        // --- CLASE: PARÁMETROS GLOBALES ---
+        Clase claseGlobal = claseRepository.findByCodigo("GLOBAL").orElseGet(() -> {
+            Clase c = new Clase();
+            c.setCodigo("GLOBAL");
+            c.setNombre("PARÁMETROS GLOBALES");
+            c.setDescripcion("Configuraciones base transversales a todo el sistema");
+            c.setActivo(true);
+            return claseRepository.save(c);
+        });
+
+        // --- ESTRUCTURA: TIPO DE IDENTIFICACIÓN ---
+        Estructura estTipId = estructuraRepository.findByCodigo("TIP_ID").orElseGet(() -> {
+            Estructura e = new Estructura();
+            e.setCodigo("TIP_ID");
+            e.setNombre("TIPO DE IDENTIFICACIÓN");
+            e.setClase(claseGlobal);
+            return estructuraRepository.save(e);
+        });
+
+        // UNIDADES: CC, NIT, CE
+        Unidad uniCC = unidadRepository.findByCodigo("CC").orElseGet(() -> {
+            Unidad u = new Unidad();
+            u.setCodigo("CC");
+            u.setNombre("Cédula de Ciudadanía");
+            u.setEstructura(estTipId);
+            return unidadRepository.save(u);
+        });
+        Unidad uniNIT = unidadRepository.findByCodigo("NIT").orElseGet(() -> {
+            Unidad u = new Unidad();
+            u.setCodigo("NIT");
+            u.setNombre("Número de Identificación Tributaria");
+            u.setEstructura(estTipId);
+            return unidadRepository.save(u);
+        });
+
+        // --- ESTRUCTURA: TIPO DE TERCERO ---
+        Estructura estTipTer = estructuraRepository.findByCodigo("TIP_TER").orElseGet(() -> {
+            Estructura e = new Estructura();
+            e.setCodigo("TIP_TER");
+            e.setNombre("TIPO DE TERCERO");
+            e.setClase(claseGlobal);
+            return estructuraRepository.save(e);
+        });
+
+        // UNIDADES: Natural, Jurídica
+        Unidad uniNatural = unidadRepository.findByCodigo("NATURAL").orElseGet(() -> {
+            Unidad u = new Unidad();
+            u.setCodigo("NATURAL");
+            u.setNombre("Persona Natural");
+            u.setEstructura(estTipTer);
+            return unidadRepository.save(u);
+        });
+        Unidad uniJuridica = unidadRepository.findByCodigo("JURIDICA").orElseGet(() -> {
+            Unidad u = new Unidad();
+            u.setCodigo("JURIDICA");
+            u.setNombre("Persona Jurídica");
+            u.setEstructura(estTipTer);
+            return unidadRepository.save(u);
+        });
+        
+        // ==========================================
+        // 2. CREACIÓN DE NEGOCIOS Y ROLES
+        // ==========================================
         GiroNegocio giroBillar = checkAndCreateGiro("RESTAURANTE / BILLAR", "REST_BILL", "ARENA_DUELO");
         GiroNegocio giroZapa = checkAndCreateGiro("ZAPATERÍA / RETAIL", "ZAPA", "POS_ESTANDAR");
         GiroNegocio giroSuper = checkAndCreateGiro("SUPERMERCADO", "SUPER_MARKET", "LECTOR_BARRAS");
 
-        // 2. ROLES Y PERMISOS BASE
         Rol superRol = checkAndCreateRol("SUPER");
         Rol adminRol = checkAndCreateRol("ADMIN");
         Rol opRol = checkAndCreateRol("OPERATIVO");
@@ -59,14 +124,16 @@ public class DataInitializer implements CommandLineRunner {
         asignarPermisoARol(adminRol, invEdit);
         asignarPermisoARol(opRol, invView);
 
-        // 3. PROGRAMAS DEL SISTEMA (AQUÍ AGREGAMOS POS)
         Programa progInv = checkAndCreatePrograma("Inventario", "INV");
         Programa progPos = checkAndCreatePrograma("Punto de Venta", "POS");
 
-        // 4. ESTRUCTURA DE JUAN (SUPER ADMIN)
+        // ==========================================
+        // 3. ESTRUCTURA DE JUAN (SUPER ADMIN)
+        // ==========================================
         if (usuarioRepository.findByLogin("superadmin").isEmpty()) {
-            Tercero terJuan = crearTerceroBasic("1010", "Juan", "Admin", "juan@nodo.com");
-            Tercero terEmpNodo = crearTerceroBasic("9001", "Sistemas", "Nodo", "contacto@nodo.com");
+            // 🔥 Le pasamos las Unidades que creamos arriba
+            Tercero terJuan = crearTerceroBasic("1010", "Juan", "Admin", "juan@nodo.com", uniCC, uniNatural);
+            Tercero terEmpNodo = crearTerceroBasic("9001", "Sistemas", "Nodo", "contacto@nodo.com", uniNIT, uniJuridica);
             Empresa empNodo = crearEmpresaBasic(terEmpNodo, "SISTEMAS NODO", giroZapa);
             
             vincularPrograma(empNodo, progInv);
@@ -75,7 +142,7 @@ public class DataInitializer implements CommandLineRunner {
             SuscripcionPrograma subNodoInv = new SuscripcionPrograma();
             subNodoInv.setEmpresa(empNodo);
             subNodoInv.setPrograma(progInv);
-            subNodoInv.setMaxDispositivos(10); // 10 cupos para el Super Admin
+            subNodoInv.setMaxDispositivos(10); 
             subNodoInv.setDispositivosActivos(0);
             subNodoInv.setActivo(true);
             suscripcionProgramaRepository.save(subNodoInv);
@@ -83,73 +150,63 @@ public class DataInitializer implements CommandLineRunner {
             crearUsuarioBasic("superadmin", "admin123", terJuan, empNodo, superRol);
         }
 
-        // 5. ESTRUCTURA DE DIEGO (BILLARES DIEGO)
+        // ==========================================
+        // 4. ESTRUCTURA DE DIEGO (BILLARES DIEGO)
+        // ==========================================
         if (usuarioRepository.findByLogin("diego_admin").isEmpty()) {
-            Tercero terDiego = crearTerceroBasic("2020", "Diego", "Cliente", "diego@billares.com");
-            Tercero terEmpDiego = crearTerceroBasic("8002", "Billares", "Diego", "ventas@billaresdiego.com");
+            Tercero terDiego = crearTerceroBasic("2020", "Diego", "Cliente", "diego@billares.com", uniCC, uniNatural);
+            Tercero terEmpDiego = crearTerceroBasic("8002", "Billares", "Diego", "ventas@billaresdiego.com", uniNIT, uniJuridica);
             
             Empresa empDiego = crearEmpresaBasic(terEmpDiego, "BILLARES DIEGO", giroBillar);
             
-            // Vinculamos ambos programas a la empresa
             vincularPrograma(empDiego, progInv);
             vincularPrograma(empDiego, progPos);
 
             crearUsuarioBasic("diego_admin", "diego123", terDiego, empDiego, adminRol);
 
-            // 6. CONTROL DE DISPOSITIVOS (SUSCRIPCIONES POR PROGRAMA)
-            
-            // --- Suscripción para Módulo de Inventario (INV) ---
             SuscripcionPrograma subDiegoInv = new SuscripcionPrograma();
             subDiegoInv.setEmpresa(empDiego);
             subDiegoInv.setPrograma(progInv);
             subDiegoInv.setMaxDispositivos(5);
-            subDiegoInv.setDispositivosActivos(1); // 1 en uso por la tablet de prueba
+            subDiegoInv.setDispositivosActivos(1); 
             subDiegoInv.setActivo(true);
             suscripcionProgramaRepository.save(subDiegoInv);
 
-            // --- Suscripción para Módulo de Punto de Venta (POS) ---
             SuscripcionPrograma subDiegoPos = new SuscripcionPrograma();
             subDiegoPos.setEmpresa(empDiego);
             subDiegoPos.setPrograma(progPos);
             subDiegoPos.setMaxDispositivos(5);
-            subDiegoPos.setDispositivosActivos(0); // 0 en uso inicialmente
+            subDiegoPos.setDispositivosActivos(0);
             subDiegoPos.setActivo(true);
             suscripcionProgramaRepository.save(subDiegoPos);
 
-            // 🔥 NUEVO: Registro de la Tablet inyectando EMPRESA y PROGRAMA directos
             TerminalDispositivo tablet1 = new TerminalDispositivo();
             tablet1.setSuscripcion(subDiegoInv); 
-            tablet1.setEmpresa(empDiego);        // <-- Ahora la tablet sabe de qué empresa es sin joins raros
-            tablet1.setPrograma(progInv);        // <-- Y sabe que pertenece al módulo de inventario
+            tablet1.setEmpresa(empDiego);        
+            tablet1.setPrograma(progInv);        
             tablet1.setUuidHardware("809fca6bebd005e2");
             tablet1.setAlias("Tablet Motorola G84");
             tablet1.setFechaRegistro(LocalDateTime.now());
             tablet1.setBloqueado(false);
             terminalDispositivoRepository.save(tablet1);
 
-            // 7. CREACIÓN DE SLOTS OPERATIVOS
-            // 🔥 NUEVO: Ahora inyectamos el progPos a los meseros, porque ellos operan el Punto de Venta
             crearSlot(empDiego, progPos, "MESERO ALEJO", "M1_ALEJO", "1234", opRol);
             crearSlot(empDiego, progPos, "CAJERO CARLOS", "C1_CARLOS", "5555", opRol);
             crearSlot(empDiego, progPos, "BARTENDER LUCIA", "B1_LUCIA", "0000", opRol);
             crearSlot(empDiego, progPos, "MESERO PEDRO", "M2_PEDRO", "4321", opRol);
 
-            // 8. MOTOR DE PARÁMETROS: CLASE -> ESTRUCTURA -> UNIDAD
             Clase claseInv = checkAndCreateClase("INVENTARIO", "INV");
 
-            // Estructura para Categorías
             Estructura estCat = checkAndCreateEstructura(claseInv, "CATEGORIAS DE PRODUCTO", "CAT_PROD");
             Unidad uniBebida = checkAndCreateUnidad(estCat, "BEBIDAS", "BEB");
             Unidad uniComida = checkAndCreateUnidad(estCat, "COMIDAS", "COM");
             Unidad uniLicores = checkAndCreateUnidad(estCat, "LICORES", "LIC");
 
-            // Estructura para Unidades de Medida
             Estructura estMed = checkAndCreateEstructura(claseInv, "UNIDADES DE MEDIDA", "UNI_MED");
             Unidad uniBotella = checkAndCreateUnidad(estMed, "BOTELLA", "BOT");
             Unidad uniPlato = checkAndCreateUnidad(estMed, "PLATO", "PLA");
             Unidad uniTrago = checkAndCreateUnidad(estMed, "TRAGO", "TRA");
 
-            // 9. CATÁLOGO DE PRODUCTOS (Asociados a BILLARES DIEGO)
             crearProducto(empDiego, "P001", "Cerveza Poker 330ml", uniBebida, uniBotella, 3500.0, 5500.0, 100);
             crearProducto(empDiego, "P002", "Cerveza Club Colombia", uniBebida, uniBotella, 4000.0, 6500.0, 80);
             crearProducto(empDiego, "P003", "Empanada de Carne", uniComida, uniPlato, 1200.0, 2500.0, 50);
@@ -159,14 +216,13 @@ public class DataInitializer implements CommandLineRunner {
             System.out.println("-----------------------------------------");
             System.out.println("🚀 PRUEBA COMPLETA LISTA (INCLUYE POS E INV)");
             System.out.println("🏢 Empresa: BILLARES DIEGO (ID: " + empDiego.getId() + ")");
-            System.out.println("📦 Catálogo de productos sincronizado.");
-            System.out.println("👥 4 Slots creados (Vinculados a Módulo POS).");
-            System.out.println("📱 1 Tablet creada (Vinculada a Módulo INV).");
             System.out.println("-----------------------------------------");
         }
     }
 
-    // --- MÉTODOS AUXILIARES ---
+    // ==========================================
+    // MÉTODOS AUXILIARES
+    // ==========================================
 
     private Clase checkAndCreateClase(String nombre, String codigo) {
         return claseRepository.findByCodigo(codigo).orElseGet(() -> {
@@ -215,11 +271,10 @@ public class DataInitializer implements CommandLineRunner {
         productoRepository.save(p);
     }
 
-    // 🔥 NUEVO: Agregamos el parámetro Programa a la función helper
     private void crearSlot(Empresa emp, Programa prog, String alias, String login, String pin, Rol rol) {
         UsuarioOperativo op = new UsuarioOperativo();
         op.setEmpresa(emp);
-        op.setPrograma(prog); // <-- Guardamos la relación
+        op.setPrograma(prog); 
         op.setAlias(alias);
         op.setLogin(login);
         op.setPassword(passwordEncoder.encode(pin));
@@ -239,13 +294,16 @@ public class DataInitializer implements CommandLineRunner {
         });
     }
 
-    private Tercero crearTerceroBasic(String doc, String nom, String ape, String mail) {
+    // 🔥 NUEVO: Recibe las Unidades paramétricas y las amarra al Tercero
+    private Tercero crearTerceroBasic(String doc, String nom, String ape, String mail, Unidad tipId, Unidad tipTer) {
         Tercero t = new Tercero();
         t.setDocumento(doc);
         t.setNombre(nom);
         t.setApellido(ape);
         t.setNombreCompleto(nom + " " + ape);
         t.setCorreo(mail);
+        t.setTipoIdentificacion(tipId); // <-- ¡Inyección!
+        t.setTipoTercero(tipTer);       // <-- ¡Inyección!
         return terceroRepository.save(t);
     }
 

@@ -43,4 +43,9 @@ public class UnidadController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+    
+    @GetMapping
+    public ResponseEntity<List<Unidad>> listarTodas() {
+        return ResponseEntity.ok(unidadService.obtenerTodas());
+    }
 }

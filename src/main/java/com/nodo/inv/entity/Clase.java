@@ -20,6 +20,10 @@ public class Clase {
     @Column(name = "cla_nombre", nullable = false, length = 100)
     private String nombre; // Ej: "INVENTARIO"
 
-    @Column(name = "cla_descripcion")
+    @Column(name = "cla_descripcion", length = 500)
     private String descripcion;
+
+    // 🔥 NUEVO: El campo que le faltaba al DataInitializer y al Frontend
+    @Column(name = "cla_activo")
+    private Boolean activo;
 }

@@ -2,6 +2,8 @@ package com.nodo.inv.entity;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore; // 🔥 IMPORTANTE: Asegúrate de importar esto
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -27,7 +29,6 @@ public class Empresa {
     @Column(name = "emp_ideregistro")
     private Long id;
 
-    // Relación 1:1 con Tercero (Para tener NIT, Dirección, etc.)
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ter_ideregistro", nullable = false)
     private Tercero tercero;
@@ -36,18 +37,19 @@ public class Empresa {
     private String nombreComercial;
 
     @Column(name = "emp_estado")
-    private Boolean activo; // Para bloquear el acceso a toda la empresa si no paga el servicio
+    private Boolean activo;
 
-    // Relación con los usuarios que pertenecen a esta empresa
+    // 🔥 SOLUCIÓN: Ignoramos las listas para romper el bucle infinito
+    @JsonIgnore
     @OneToMany(mappedBy = "empresa", fetch = FetchType.LAZY)
     private List<Usuario> usuarios;
     
+    // 🔥 SOLUCIÓN: Ignoramos los programas contratados para que no llame de vuelta a la empresa
+    @JsonIgnore
     @OneToMany(mappedBy = "empresa", fetch = FetchType.LAZY)
     private List<EmpresaPrograma> programasContratados;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "gn_ideregistro")
     private GiroNegocio giroNegocio;
-    
-    
 }

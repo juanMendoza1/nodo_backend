@@ -4,6 +4,7 @@ import com.nodo.inv.entity.Unidad;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface UnidadRepository extends JpaRepository<Unidad, Long> {
@@ -12,4 +13,6 @@ public interface UnidadRepository extends JpaRepository<Unidad, Long> {
     
     // Busca por el código de la estructura para que sea más fácil de usar
     List<Unidad> findByEstructuraCodigo(String codigoEstructura);
+    
+    Optional<Unidad> findByCodigo(String codigo);
 }

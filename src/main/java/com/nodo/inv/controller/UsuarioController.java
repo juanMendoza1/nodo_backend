@@ -8,13 +8,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import com.nodo.inv.dto.UsuarioRegistroDTO;
+// Importamos el nuevo DTO para el CRUD del Panel Web
+import com.nodo.inv.dto.UsuarioDataDTO; 
+
+import com.nodo.inv.dto.UsuarioRegistroDTO; // Por si lo tienes en uso en AuthController
 import com.nodo.inv.dto.UsuarioSlotDTO;
+import com.nodo.inv.dto.UsuarioSlotGuardarDTO;
 import com.nodo.inv.entity.Usuario;
 import com.nodo.inv.entity.UsuarioOperativo;
 import com.nodo.inv.service.UsuarioOperativoService;
 import com.nodo.inv.service.UsuarioService;
-import com.nodo.inv.dto.UsuarioSlotGuardarDTO;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,14 +29,52 @@ public class UsuarioController {
     private final UsuarioService usuarioService;
     private final UsuarioOperativoService operativoService;
 
-    // 1. Crear usuarios (Lo que ya tenías)
-    @PostMapping
-    @PreAuthorize("hasRole('SUPER')") 
-    public ResponseEntity<Usuario> crear(@RequestBody UsuarioRegistroDTO dto) {
-        return ResponseEntity.ok(usuarioService.crearUsuarioAdmin(dto));
+    // ======================================================================
+    // 1. NUEVO CRUD DE USUARIOS DEL SISTEMA (PANEL SUPER ADMIN WEB)
+    // ======================================================================
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<List<Usuario>> listarTodos() {
+        return ResponseEntity.ok(usuarioService.obtenerTodos());
     }
 
-    // 2. NUEVO: Obtener los "Slots" para la tablet
+    @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<?> crear(@RequestBody UsuarioDataDTO dto) {
+        try {
+            return ResponseEntity.ok(usuarioService.guardarUsuario(dto));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody UsuarioDataDTO dto) {
+        try {
+            dto.setId(id);
+            return ResponseEntity.ok(usuarioService.guardarUsuario(dto));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER')") // Solo el SuperAdmin debería poder borrar
+    public ResponseEntity<?> eliminar(@PathVariable Long id) {
+        try {
+            usuarioService.eliminarUsuario(id);
+            return ResponseEntity.ok(Map.of("message", "Usuario eliminado correctamente"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", "No se puede eliminar el usuario porque ya tiene historial operativo."));
+        }
+    }
+
+    // ======================================================================
+    // 2. GESTIÓN DE USUARIOS OPERATIVOS (SLOTS PARA TABLET / ANDROID)
+    // ======================================================================
+
     // Este endpoint lo llamará la tablet justo después de vincularse
     @GetMapping("/empresa/{empresaId}")
     public ResponseEntity<List<UsuarioSlotDTO>> listarSlotsPorEmpresa(@PathVariable Long empresaId) {
