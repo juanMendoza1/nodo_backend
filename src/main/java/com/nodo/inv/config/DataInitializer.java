@@ -9,7 +9,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Component
@@ -25,186 +24,94 @@ public class DataInitializer implements CommandLineRunner {
     private final EmpresaProgramaRepository empresaProgramaRepository;
     private final PermisoRepository permisoRepository;
     private final RolPermisoRepository rolPermisoRepository;
-    private final EmpresaTerceroRepository empresaTerceroRepository;
-    private final GiroNegocioRepository giroNegocioRepository;
     private final SuscripcionProgramaRepository suscripcionProgramaRepository;
-    private final TerminalDispositivoRepository terminalDispositivoRepository;
-    private final UsuarioOperativoRepository usuarioOperativoRepository;
-    private final PasswordEncoder passwordEncoder;
-
-    // Nuevos repositorios para productos y parámetros
+    private final GiroNegocioRepository giroNegocioRepository;
     private final ClaseRepository claseRepository;
     private final EstructuraRepository estructuraRepository;
     private final UnidadRepository unidadRepository;
-    private final ProductoRepository productoRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
     public void run(String... args) throws Exception {
         
         // ==========================================
-        // 1. INYECCIÓN DEL MOTOR PARAMÉTRICO
+        // 1. MOTOR PARAMÉTRICO (LISTAS DESPLEGABLES)
         // ==========================================
         
         // --- CLASE: PARÁMETROS GLOBALES ---
-        Clase claseGlobal = claseRepository.findByCodigo("GLOBAL").orElseGet(() -> {
-            Clase c = new Clase();
-            c.setCodigo("GLOBAL");
-            c.setNombre("PARÁMETROS GLOBALES");
-            c.setDescripcion("Configuraciones base transversales a todo el sistema");
-            c.setActivo(true);
-            return claseRepository.save(c);
-        });
+        Clase claseGlobal = checkAndCreateClase("PARÁMETROS GLOBALES", "GLOBAL", "Configuraciones base transversales a todo el sistema");
 
-        // --- ESTRUCTURA: TIPO DE IDENTIFICACIÓN ---
-        Estructura estTipId = estructuraRepository.findByCodigo("TIP_ID").orElseGet(() -> {
-            Estructura e = new Estructura();
-            e.setCodigo("TIP_ID");
-            e.setNombre("TIPO DE IDENTIFICACIÓN");
-            e.setClase(claseGlobal);
-            return estructuraRepository.save(e);
-        });
-
-        // UNIDADES: CC, NIT, CE (Globales)
+        // --- ESTRUCTURAS Y UNIDADES ---
+        Estructura estTipId = checkAndCreateEstructura(claseGlobal, "TIPO DE IDENTIFICACIÓN", "TIP_ID");
         Unidad uniCC = checkAndCreateUnidad(estTipId, "Cédula de Ciudadanía", "CC");
         Unidad uniNIT = checkAndCreateUnidad(estTipId, "Número de Identificación Tributaria", "NIT");
 
-        // --- ESTRUCTURA: TIPO DE TERCERO ---
-        Estructura estTipTer = estructuraRepository.findByCodigo("TIP_TER").orElseGet(() -> {
-            Estructura e = new Estructura();
-            e.setCodigo("TIP_TER");
-            e.setNombre("TIPO DE TERCERO");
-            e.setClase(claseGlobal);
-            return estructuraRepository.save(e);
-        });
-
-        // UNIDADES: Natural, Jurídica (Globales)
+        Estructura estTipTer = checkAndCreateEstructura(claseGlobal, "TIPO DE TERCERO", "TIP_TER");
         Unidad uniNatural = checkAndCreateUnidad(estTipTer, "Persona Natural", "NATURAL");
         Unidad uniJuridica = checkAndCreateUnidad(estTipTer, "Persona Jurídica", "JURIDICA");
         
         // ==========================================
-        // 2. CREACIÓN DE NEGOCIOS Y ROLES
+        // 2. GIROS DE NEGOCIO, ROLES Y PERMISOS (SaaS)
         // ==========================================
         GiroNegocio giroBillar = checkAndCreateGiro("RESTAURANTE / BILLAR", "REST_BILL", "ARENA_DUELO");
-        GiroNegocio giroZapa = checkAndCreateGiro("ZAPATERÍA / RETAIL", "ZAPA", "POS_ESTANDAR");
-        GiroNegocio giroSuper = checkAndCreateGiro("SUPERMERCADO", "SUPER_MARKET", "LECTOR_BARRAS");
+        GiroNegocio giroRetail = checkAndCreateGiro("ZAPATERÍA / RETAIL", "RETAIL", "POS_ESTANDAR");
 
-        Rol superRol = checkAndCreateRol("SUPER");
-        Rol adminRol = checkAndCreateRol("ADMIN");
-        Rol opRol = checkAndCreateRol("OPERATIVO");
+        Rol superRol = checkAndCreateRol("SUPER", "Administrador Global del Sistema");
+        Rol adminRol = checkAndCreateRol("ADMIN", "Propietario / Tenant del Negocio");
+        Rol opRol = checkAndCreateRol("OPERATIVO", "Cajero / Mesero / Operador de TPV");
         
-        // 🔥 CREACIÓN DE FICHAS DE LEGO (Módulos del Sistema SaaS)
-        // Se guardan en base de datos para que el SuperAdmin las asigne a los Programas,
-        // pero NO se las asignamos directamente a ningún rol aquí.
+        // 🔥 CREACIÓN DE FICHAS DE LEGO (Funcionalidades del Sistema)
         Permiso modInventario = checkAndCreatePermiso("MOD_INVENTARIO", "Módulo de Gestión de Inventarios y Catálogo");
         Permiso modCaja = checkAndCreatePermiso("MOD_CAJA", "Módulo de Punto de Venta y Facturación");
-        Permiso modTablets = checkAndCreatePermiso("MOD_TABLETS", "Módulo de Gestión de Dispositivos y QR");
-        Permiso modPersonal = checkAndCreatePermiso("MOD_PERSONAL", "Módulo de Gestión de Empleados y Operarios");
+        Permiso modTablets = checkAndCreatePermiso("MOD_TABLETS", "Módulo de Gestión de Dispositivos (Tablets y QR)");
+        Permiso modPersonal = checkAndCreatePermiso("MOD_PERSONAL", "Módulo de Gestión de Empleados y Slots");
+        Permiso modLiquidacion = checkAndCreatePermiso("MOD_LIQUID_SLOT", "Módulo Avanzado de Liquidación de Nómina y Comisiones");
 
-        Programa progInv = checkAndCreatePrograma("Inventario", "INV");
-        Programa progPos = checkAndCreatePrograma("Punto de Venta", "POS");
+        // 🔥 CREACIÓN DE PROGRAMAS (Paquetes a vender)
+        Programa progInv = checkAndCreatePrograma("Inventario y Catálogo", "INV", "Gestión de stock y productos");
+        Programa progPosBasic = checkAndCreatePrograma("Punto de Venta (Básico)", "POS_BASIC", "Caja, comandas y personal básico");
+        Programa progPosPro = checkAndCreatePrograma("Punto de Venta (Premium)", "POS_PRO", "Caja, personal y liquidación automática");
 
         // ==========================================
-        // 3. ESTRUCTURA DE JUAN (SUPER ADMIN)
+        // 3. ESTRUCTURA MAESTRA (EL SUPER ADMIN NODO)
         // ==========================================
         if (usuarioRepository.findByLogin("superadmin").isEmpty()) {
-            Tercero terJuan = crearTerceroBasic("1010", "Juan", "Admin", "juan@nodo.com", uniCC, uniNatural);
-            Tercero terEmpNodo = crearTerceroBasic("9001", "Sistemas", "Nodo", "contacto@nodo.com", uniNIT, uniJuridica);
-            Empresa empNodo = crearEmpresaBasic(terEmpNodo, "SISTEMAS NODO", giroZapa);
             
+            // 3.1. Tercero y Empresa Dueña del Software (Tú)
+            Tercero terJuan = crearTerceroBasic("101010", "Master", "Admin", "admin@nodo.com", uniCC, uniNatural);
+            Tercero terEmpNodo = crearTerceroBasic("900000000", "Sistemas", "Nodo SAS", "contacto@nodo.com", uniNIT, uniJuridica);
+            Empresa empNodo = crearEmpresaBasic(terEmpNodo, "NODO MASTER INC.", giroRetail);
+            
+            // 3.2. Asignamos TODOS los programas al SuperAdmin para que no se le bloquee la pantalla
             vincularPrograma(empNodo, progInv);
-            vincularPrograma(empNodo, progPos);
+            vincularPrograma(empNodo, progPosBasic);
+            vincularPrograma(empNodo, progPosPro);
 
-            SuscripcionPrograma subNodoInv = new SuscripcionPrograma();
-            subNodoInv.setEmpresa(empNodo);
-            subNodoInv.setPrograma(progInv);
-            subNodoInv.setMaxDispositivos(10); 
-            subNodoInv.setDispositivosActivos(0);
-            subNodoInv.setActivo(true);
-            suscripcionProgramaRepository.save(subNodoInv);
+            crearSuscripcion(empNodo, progInv, 999);
+            crearSuscripcion(empNodo, progPosPro, 999);
 
+            // 3.3. Creamos tus credenciales de acceso
             crearUsuarioBasic("superadmin", "admin123", terJuan, empNodo, superRol);
-        }
-
-        // ==========================================
-        // 4. ESTRUCTURA DE DIEGO (BILLARES DIEGO)
-        // ==========================================
-        if (usuarioRepository.findByLogin("diego_admin").isEmpty()) {
-            Tercero terDiego = crearTerceroBasic("2020", "Diego", "Cliente", "diego@billares.com", uniCC, uniNatural);
-            Tercero terEmpDiego = crearTerceroBasic("8002", "Billares", "Diego", "ventas@billaresdiego.com", uniNIT, uniJuridica);
-            
-            Empresa empDiego = crearEmpresaBasic(terEmpDiego, "BILLARES DIEGO", giroBillar);
-            
-            vincularPrograma(empDiego, progInv);
-            vincularPrograma(empDiego, progPos);
-
-            crearUsuarioBasic("diego_admin", "diego123", terDiego, empDiego, adminRol);
-
-            SuscripcionPrograma subDiegoInv = new SuscripcionPrograma();
-            subDiegoInv.setEmpresa(empDiego);
-            subDiegoInv.setPrograma(progInv);
-            subDiegoInv.setMaxDispositivos(5);
-            subDiegoInv.setDispositivosActivos(1); 
-            subDiegoInv.setActivo(true);
-            suscripcionProgramaRepository.save(subDiegoInv);
-
-            SuscripcionPrograma subDiegoPos = new SuscripcionPrograma();
-            subDiegoPos.setEmpresa(empDiego);
-            subDiegoPos.setPrograma(progPos);
-            subDiegoPos.setMaxDispositivos(5);
-            subDiegoPos.setDispositivosActivos(0);
-            subDiegoPos.setActivo(true);
-            suscripcionProgramaRepository.save(subDiegoPos);
-
-            TerminalDispositivo tablet1 = new TerminalDispositivo();
-            tablet1.setSuscripcion(subDiegoInv); 
-            tablet1.setEmpresa(empDiego);        
-            tablet1.setPrograma(progInv);        
-            tablet1.setUuidHardware("809fca6bebd005e2");
-            tablet1.setAlias("Tablet Motorola G84");
-            tablet1.setFechaRegistro(LocalDateTime.now());
-            tablet1.setBloqueado(false);
-            terminalDispositivoRepository.save(tablet1);
-
-            crearSlot(empDiego, progPos, "MESERO ALEJO", "M1_ALEJO", "1234", opRol);
-            crearSlot(empDiego, progPos, "CAJERO CARLOS", "C1_CARLOS", "5555", opRol);
-            crearSlot(empDiego, progPos, "BARTENDER LUCIA", "B1_LUCIA", "0000", opRol);
-            crearSlot(empDiego, progPos, "MESERO PEDRO", "M2_PEDRO", "4321", opRol);
-
-            Clase claseInv = checkAndCreateClase("INVENTARIO", "INV");
-
-            Estructura estCat = checkAndCreateEstructura(claseInv, "CATEGORIAS DE PRODUCTO", "CAT_PROD");
-            Unidad uniBebida = checkAndCreateUnidad(estCat, "BEBIDAS", "BEB");
-            Unidad uniComida = checkAndCreateUnidad(estCat, "COMIDAS", "COM");
-            Unidad uniLicores = checkAndCreateUnidad(estCat, "LICORES", "LIC");
-
-            Estructura estMed = checkAndCreateEstructura(claseInv, "UNIDADES DE MEDIDA", "UNI_MED");
-            Unidad uniBotella = checkAndCreateUnidad(estMed, "BOTELLA", "BOT");
-            Unidad uniPlato = checkAndCreateUnidad(estMed, "PLATO", "PLA");
-            Unidad uniTrago = checkAndCreateUnidad(estMed, "TRAGO", "TRA");
-
-            crearProducto(empDiego, "P001", "Cerveza Poker 330ml", uniBebida, uniBotella, 3500.0, 5500.0, 100);
-            crearProducto(empDiego, "P002", "Cerveza Club Colombia", uniBebida, uniBotella, 4000.0, 6500.0, 80);
-            crearProducto(empDiego, "P003", "Empanada de Carne", uniComida, uniPlato, 1200.0, 2500.0, 50);
-            crearProducto(empDiego, "P004", "Picada Familiar", uniComida, uniPlato, 25000.0, 45000.0, 20);
-            crearProducto(empDiego, "P005", "Aguardiente Antioqueño (Trago)", uniLicores, uniTrago, 5000.0, 12000.0, 40);
 
             System.out.println("-----------------------------------------");
-            System.out.println("🚀 PRUEBA COMPLETA LISTA (INCLUYE POS E INV)");
-            System.out.println("🏢 Empresa: BILLARES DIEGO (ID: " + empDiego.getId() + ")");
+            System.out.println("🚀 SISTEMA NODO INICIALIZADO LIMPIO");
+            System.out.println("👑 Credenciales: superadmin / admin123");
             System.out.println("-----------------------------------------");
         }
     }
 
     // ==========================================
-    // MÉTODOS AUXILIARES
+    // MÉTODOS AUXILIARES (Helpers Limpios)
     // ==========================================
 
-    private Clase checkAndCreateClase(String nombre, String codigo) {
+    private Clase checkAndCreateClase(String nombre, String codigo, String desc) {
         return claseRepository.findByCodigo(codigo).orElseGet(() -> {
             Clase c = new Clase();
             c.setNombre(nombre);
             c.setCodigo(codigo);
+            c.setDescripcion(desc);
+            c.setActivo(true);
             return claseRepository.save(c);
         });
     }
@@ -228,37 +135,9 @@ public class DataInitializer implements CommandLineRunner {
                     u.setEstructura(est);
                     u.setNombre(nombre);
                     u.setCodigo(codigo);
-                    u.setEsGlobal(true); // Se asegura de que nazca como global
+                    u.setEsGlobal(true);
                     return unidadRepository.save(u);
                 });
-    }
-
-    private void crearProducto(Empresa emp, String cod, String nom, Unidad cat, Unidad med, Double costo, Double venta, Integer stock) {
-        Producto p = new Producto();
-        p.setEmpresa(emp);
-        p.setCodigo(cod);
-        p.setNombre(nom);
-        p.setCategoria(cat);
-        p.setUnidadMedida(med);
-        p.setPrecioCosto(BigDecimal.valueOf(costo));
-        p.setPrecioVenta(BigDecimal.valueOf(venta));
-        p.setStockActual(stock);
-        p.setStockMinimo(5);
-        p.setActivo(true);
-        productoRepository.save(p);
-    }
-
-    private void crearSlot(Empresa emp, Programa prog, String alias, String login, String pin, Rol rol) {
-        UsuarioOperativo op = new UsuarioOperativo();
-        op.setEmpresa(emp);
-        op.setPrograma(prog); 
-        op.setAlias(alias);
-        op.setLogin(login);
-        op.setPassword(passwordEncoder.encode(pin));
-        op.setEstado(EstadoUsuario.ACTIVO);
-        op.setRol(rol);
-        op.setFechaCreacion(LocalDateTime.now());
-        usuarioOperativoRepository.save(op);
     }
 
     private GiroNegocio checkAndCreateGiro(String nom, String cod, String template) {
@@ -268,6 +147,37 @@ public class DataInitializer implements CommandLineRunner {
             gn.setCodigo(cod);
             gn.setTemplateMovil(template);
             return giroNegocioRepository.save(gn);
+        });
+    }
+
+    private Rol checkAndCreateRol(String nombre, String desc) {
+        return rolRepository.findByNombre(nombre).orElseGet(() -> {
+            Rol r = new Rol();
+            r.setNombre(nombre);
+            r.setDescripcion(desc);
+            r.setActivo(true);
+            return rolRepository.save(r);
+        });
+    }
+
+    private Permiso checkAndCreatePermiso(String cod, String desc) {
+        return permisoRepository.findByCodigo(cod).orElseGet(() -> {
+            Permiso p = new Permiso();
+            p.setCodigo(cod);
+            p.setDescripcion(desc);
+            return permisoRepository.save(p);
+        });
+    }
+
+    private Programa checkAndCreatePrograma(String nom, String cod, String desc) {
+        return programaRepository.findByCodigo(cod).orElseGet(() -> {
+            Programa p = new Programa();
+            p.setNombre(nom);
+            p.setCodigo(cod);
+            p.setDescripcion(desc);
+            p.setActivo(true);
+            p.setVersion("1.0.0");
+            return programaRepository.save(p);
         });
     }
 
@@ -310,42 +220,6 @@ public class DataInitializer implements CommandLineRunner {
         return u;
     }
 
-    private Rol checkAndCreateRol(String nombre) {
-        return rolRepository.findByNombre(nombre).orElseGet(() -> {
-            Rol r = new Rol();
-            r.setNombre(nombre);
-            return rolRepository.save(r);
-        });
-    }
-
-    private Permiso checkAndCreatePermiso(String cod, String desc) {
-        return permisoRepository.findByCodigo(cod).orElseGet(() -> {
-            Permiso p = new Permiso();
-            p.setCodigo(cod);
-            p.setDescripcion(desc);
-            return permisoRepository.save(p);
-        });
-    }
-
-    private void asignarPermisoARol(Rol r, Permiso p) {
-        if (rolPermisoRepository.findByRol(r).stream().noneMatch(rp -> rp.getPermiso().getCodigo().equals(p.getCodigo()))) {
-            RolPermiso rp = new RolPermiso();
-            rp.setRol(r);
-            rp.setPermiso(p);
-            rolPermisoRepository.save(rp);
-        }
-    }
-
-    private Programa checkAndCreatePrograma(String nom, String cod) {
-        return programaRepository.findByCodigo(cod).orElseGet(() -> {
-            Programa p = new Programa();
-            p.setNombre(nom);
-            p.setCodigo(cod);
-            p.setActivo(true);
-            return programaRepository.save(p);
-        });
-    }
-
     private void vincularPrograma(Empresa e, Programa p) {
         EmpresaPrograma ep = new EmpresaPrograma();
         ep.setEmpresa(e);
@@ -353,5 +227,15 @@ public class DataInitializer implements CommandLineRunner {
         ep.setEstado(true);
         ep.setFechaActivacion(LocalDateTime.now());
         empresaProgramaRepository.save(ep);
+    }
+
+    private void crearSuscripcion(Empresa emp, Programa prog, int cupos) {
+        SuscripcionPrograma sub = new SuscripcionPrograma();
+        sub.setEmpresa(emp);
+        sub.setPrograma(prog);
+        sub.setMaxDispositivos(cupos);
+        sub.setDispositivosActivos(0);
+        sub.setActivo(true);
+        suscripcionProgramaRepository.save(sub);
     }
 }
