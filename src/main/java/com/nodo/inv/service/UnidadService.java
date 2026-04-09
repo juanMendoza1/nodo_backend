@@ -1,4 +1,3 @@
-// src/main/java/com/nodo/inv/service/UnidadService.java
 package com.nodo.inv.service;
 
 import com.nodo.inv.dto.UnidadDTO;
@@ -9,6 +8,8 @@ import com.nodo.inv.repository.EmpresaRepository;
 import com.nodo.inv.repository.EstructuraRepository;
 import com.nodo.inv.repository.UnidadRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,12 +23,18 @@ public class UnidadService {
     private final EstructuraRepository estructuraRepository;
     private final EmpresaRepository empresaRepository;
 
-    // 🔥 NUEVO: Método usado por el panel del Comercio (Admin)
+    @Cacheable(value = "unidadesPorEstructura", key = "#codigo + '-' + #empresaId")
     public List<Unidad> obtenerPorEstructuraYEmpresa(String codigo, Long empresaId) {
         return unidadRepository.findByEstructuraCodigoAndEmpresa(codigo, empresaId);
     }
 
+    @Cacheable(value = "unidadesTodas")
+    public List<Unidad> obtenerTodas() {
+        return unidadRepository.findAll();
+    }
+
     @Transactional
+    @CacheEvict(value = {"unidadesPorEstructura", "unidadesTodas"}, allEntries = true)
     public Unidad guardarUnidad(UnidadDTO dto) {
         Unidad unidad;
         
@@ -44,14 +51,12 @@ public class UnidadService {
         unidad.setCodigo(dto.getCodigo());
         unidad.setNombre(dto.getNombre());
         
-        // 🔥 MULTI-TENANT LOGIC
         if (dto.getEmpresaId() != null) {
             Empresa emp = empresaRepository.findById(dto.getEmpresaId())
                 .orElseThrow(() -> new RuntimeException("Empresa no encontrada"));
             unidad.setEmpresa(emp);
-            unidad.setEsGlobal(false); // Es privada del comercio
+            unidad.setEsGlobal(false); 
         } else {
-            // Creada por SuperAdmin
             unidad.setEsGlobal(dto.getEsGlobal() != null ? dto.getEsGlobal() : true);
         }
         
@@ -59,15 +64,12 @@ public class UnidadService {
     }
 
     @Transactional
+    @CacheEvict(value = {"unidadesPorEstructura", "unidadesTodas"}, allEntries = true)
     public void eliminarUnidad(Long id) {
         try {
             unidadRepository.deleteById(id);
         } catch (Exception e) {
             throw new RuntimeException("No se puede eliminar este parámetro porque ya está en uso.");
         }
-    }
-    
-    public List<Unidad> obtenerTodas() {
-        return unidadRepository.findAll();
     }
 }

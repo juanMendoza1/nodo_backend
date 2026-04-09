@@ -50,4 +50,8 @@ public class Producto {
     
     @Column(name = "pro_stockactual")
     private Integer stockActual;
+    
+    @Version
+    @Column(name = "pro_version")
+    private Long version;
 }

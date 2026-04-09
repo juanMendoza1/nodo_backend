@@ -49,4 +49,8 @@ public class Mesa {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pro_ideregistro")
     private Programa programa;
+    
+    @Version
+    @Column(name = "mes_version")
+    private Long version;
 }

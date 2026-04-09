@@ -30,17 +30,50 @@ public class LiquidacionSlotService {
     
     @Transactional
     public AcuerdoPagoSlot crearAcuerdo(AcuerdoPagoSlot acuerdo) {
-        // Regla de Oro: Validar que no tenga uno vigente
         Optional<AcuerdoPagoSlot> vigente = acuerdoRepo.findByUsuarioSlotIdAndEstado(acuerdo.getUsuarioSlot().getId(), "VIGENTE");
         if (vigente.isPresent()) {
             throw new RuntimeException("El operario ya tiene un contrato VIGENTE. Debe finalizarlo antes de crear uno nuevo.");
         }
 
-        // Autogenerar Radicado y Fechas
         acuerdo.setRadicado("CNT-" + System.currentTimeMillis());
         acuerdo.setEstado("VIGENTE");
         acuerdo.setFechaCreacion(LocalDateTime.now());
         
+        // 🔥 Regla: Si no envían fecha de inicio, es hoy
+        if (acuerdo.getFechaInicio() == null) {
+            acuerdo.setFechaInicio(LocalDate.now());
+        }
+        
+        // 🔥 Regla: Si la fecha fin viene vacía, le sumamos 1 año exacto al inicio
+        if (acuerdo.getFechaFin() == null) {
+            acuerdo.setFechaFin(acuerdo.getFechaInicio().plusYears(1));
+        }
+        
+        return acuerdoRepo.save(acuerdo);
+    }
+    
+    @Transactional
+    public AcuerdoPagoSlot actualizarAcuerdo(Long id, AcuerdoPagoSlot datosNuevos) {
+        AcuerdoPagoSlot acuerdo = acuerdoRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Contrato no encontrado"));
+                
+        acuerdo.setTipoAcuerdo(datosNuevos.getTipoAcuerdo());
+        acuerdo.setValorFijoDia(datosNuevos.getValorFijoDia());
+        acuerdo.setPorcentajeComision(datosNuevos.getPorcentajeComision());
+        acuerdo.setFrecuenciaPago(datosNuevos.getFrecuenciaPago());
+        acuerdo.setObservaciones(datosNuevos.getObservaciones());
+        
+        if (datosNuevos.getFechaInicio() != null) {
+            acuerdo.setFechaInicio(datosNuevos.getFechaInicio());
+        }
+        
+        if (datosNuevos.getFechaFin() != null) {
+            acuerdo.setFechaFin(datosNuevos.getFechaFin());
+        } else {
+            // Si al editar le borran la fecha fin, recalculamos a 1 año
+            acuerdo.setFechaFin(acuerdo.getFechaInicio().plusYears(1));
+        }
+
         return acuerdoRepo.save(acuerdo);
     }
     
@@ -50,7 +83,8 @@ public class LiquidacionSlotService {
                 .orElseThrow(() -> new RuntimeException("Contrato no encontrado"));
                 
         acuerdo.setEstado("FINALIZADO");
-        acuerdo.setFechaFin(LocalDateTime.now());
+        // Actualizamos la fecha de fin al día de hoy porque se cortó el contrato prematuramente
+        acuerdo.setFechaFin(LocalDate.now()); 
         acuerdoRepo.save(acuerdo);
     }
     
@@ -59,14 +93,32 @@ public class LiquidacionSlotService {
         return acuerdoRepo.findByUsuarioSlotIdAndEstado(slotId, "VIGENTE").orElse(null);
     }
     
+    @Transactional(readOnly = true)
+    public List<AcuerdoPagoSlot> obtenerHistorialAcuerdos(Long slotId) {
+        return acuerdoRepo.findByUsuarioSlotIdAndEstadoNotOrderByFechaCreacionDesc(slotId, "VIGENTE");
+    }
+
+    @Transactional
+    public void eliminarAcuerdo(Long acuerdoId) {
+        AcuerdoPagoSlot acuerdo = acuerdoRepo.findById(acuerdoId)
+                .orElseThrow(() -> new RuntimeException("Contrato no encontrado"));
+                
+        // Borrado físico de la base de datos
+        acuerdoRepo.delete(acuerdo);
+    }
+    
     // ========================================================================
     // 2. GESTIÓN DE NOVEDADES Y VENTAS PREVIAS
     // ========================================================================
     
     @Transactional
-    public NovedadSlot registrarNovedad(NovedadSlot novedad) {
+    public NovedadSlot registrarNovedad(NovedadSlot novedad, Long acuerdoId) {
+        AcuerdoPagoSlot acuerdo = acuerdoRepo.findById(acuerdoId)
+            .orElseThrow(() -> new RuntimeException("Contrato no encontrado"));
+            
+        novedad.setAcuerdoPago(acuerdo);
         novedad.setFechaRegistro(LocalDateTime.now());
-        novedad.setAplicada(false); // Siempre nace como pendiente de cobrar/pagar
+        novedad.setAplicada(false); 
         return novedadRepo.save(novedad);
     }
 
@@ -74,7 +126,6 @@ public class LiquidacionSlotService {
     public List<Venta> consultarVentasRango(Long slotId, LocalDate fechaInicio, LocalDate fechaFin) {
         LocalDateTime inicioDia = fechaInicio.atStartOfDay();
         LocalDateTime finDia = fechaFin.atTime(LocalTime.MAX);
-        // Busca en la base de datos el dinero real recaudado en inv_venta
         return ventaRepo.findByOperarioAndRangoFechas(slotId, inicioDia, finDia);
     }
 
@@ -100,8 +151,8 @@ public class LiquidacionSlotService {
         // 2. DÍAS TRABAJADOS (Días únicos con ventas)
         long diasTrabajados = ventas.stream().map(v -> v.getFecha().toLocalDate()).distinct().count();
 
-        // 3. NOVEDADES
-        List<NovedadSlot> novedades = novedadRepo.findByUsuarioSlotIdAndAplicadaFalseAndFechaRegistroBefore(slotId, finDia);
+        // 3. NOVEDADES (Ajustado para usar el contrato)
+        List<NovedadSlot> novedades = novedadRepo.findByAcuerdoPagoIdAndAplicadaFalse(acuerdo.getId());
         BigDecimal totalBonos = BigDecimal.ZERO;
         BigDecimal totalDescuentos = BigDecimal.ZERO;
 
@@ -156,16 +207,37 @@ public class LiquidacionSlotService {
         // Guardar recibo
         LiquidacionSlot guardada = liquidacionRepo.save(liquidacion);
 
-        // Quemar novedades (Auditoría)
-        LocalDateTime finDia = fechaFin.atTime(LocalTime.MAX);
-        List<NovedadSlot> novedades = novedadRepo.findByUsuarioSlotIdAndAplicadaFalseAndFechaRegistroBefore(slotId, finDia);
+        // 🔥 CORRECCIÓN AQUÍ: Quemar novedades del contrato actual, no genéricas del operario
+        AcuerdoPagoSlot acuerdo = acuerdoRepo.findByUsuarioSlotIdAndEstado(slotId, "VIGENTE")
+                .orElseThrow(() -> new RuntimeException("El operario no tiene un contrato de pago vigente."));
+        
+        List<NovedadSlot> novedades = novedadRepo.findByAcuerdoPagoIdAndAplicadaFalse(acuerdo.getId());
         
         for (NovedadSlot nov : novedades) {
             nov.setAplicada(true);
-            nov.setLiquidacionSlot(guardada);
+            nov.setLiquidacionSlot(guardada); // Vinculamos la nota al recibo de pago oficial
         }
         novedadRepo.saveAll(novedades);
         
         return guardada;
+    }
+    
+    @Transactional(readOnly = true)
+    public List<NovedadSlot> obtenerNovedadesPendientes(Long acuerdoId) {
+        return novedadRepo.findByAcuerdoPagoIdAndAplicadaFalse(acuerdoId);
+    }
+    
+    @Transactional(readOnly = true)
+    public List<java.util.Map<String, Object>> obtenerHistorialPagosSlot(Long slotId) {
+        return liquidacionRepo.findByUsuarioSlotIdOrderByFechaGeneracionDesc(slotId).stream()
+            .map(l -> java.util.Map.<String, Object>of(
+                "id", l.getId(),
+                "fechaInicio", l.getFechaInicio(),
+                "fechaFin", l.getFechaFin(),
+                "fechaGeneracion", l.getFechaGeneracion(),
+                "granTotalPagar", l.getGranTotalPagar(),
+                "estado", l.getEstado(),
+                "generadaPor", l.getGeneradaPor() != null ? l.getGeneradaPor().getLogin() : "SISTEMA"
+            )).toList();
     }
 }

@@ -64,6 +64,28 @@ public class LiquidacionSlotController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+    
+    @GetMapping("/acuerdos/historial/{slotId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<?> obtenerHistorialAcuerdos(@PathVariable Long slotId) {
+        try {
+            return ResponseEntity.ok(liquidacionService.obtenerHistorialAcuerdos(slotId));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // 🔥 NUEVO: Endpoint para eliminar un contrato permanentemente
+    @DeleteMapping("/acuerdo/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<?> eliminarAcuerdo(@PathVariable Long id) {
+        try {
+            liquidacionService.eliminarAcuerdo(id);
+            return ResponseEntity.ok(Map.of("mensaje", "Contrato eliminado correctamente"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 
     // ========================================================================
     // 2. GESTIÓN DE NOVEDADES Y VENTAS
@@ -87,11 +109,11 @@ public class LiquidacionSlotController {
         }
     }
 
-    @PostMapping("/novedad")
+    @PostMapping("/novedad/acuerdo/{acuerdoId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
-    public ResponseEntity<?> registrarNovedad(@RequestBody NovedadSlot novedad) {
+    public ResponseEntity<?> registrarNovedad(@PathVariable Long acuerdoId, @RequestBody NovedadSlot novedad) {
         try {
-            return ResponseEntity.ok(liquidacionService.registrarNovedad(novedad));
+            return ResponseEntity.ok(liquidacionService.registrarNovedad(novedad, acuerdoId));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -128,6 +150,37 @@ public class LiquidacionSlotController {
             Usuario admin = usuarioRepository.findById(adminId).orElseThrow(() -> new RuntimeException("Administrador no encontrado"));
             LiquidacionSlot oficial = liquidacionService.generarPagoDefinitivo(empresaId, slotId, fechaInicio, fechaFin, admin);
             return ResponseEntity.ok(Map.of("mensaje", "Liquidación generada", "data", oficial));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+    
+    @PutMapping("/acuerdo/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<?> actualizarAcuerdo(@PathVariable Long id, @RequestBody AcuerdoPagoSlot acuerdo) {
+        try {
+            // Devolvemos el acuerdo actualizado para que React refresque la vista
+            return ResponseEntity.ok(liquidacionService.actualizarAcuerdo(id, acuerdo));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+    
+    @GetMapping("/novedades/pendientes/acuerdo/{acuerdoId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<?> obtenerNovedadesPendientes(@PathVariable Long acuerdoId) {
+        try {
+            return ResponseEntity.ok(liquidacionService.obtenerNovedadesPendientes(acuerdoId));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+    
+    @GetMapping("/pagos/historial/{slotId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<?> obtenerHistorialPagos(@PathVariable Long slotId) {
+        try {
+            return ResponseEntity.ok(liquidacionService.obtenerHistorialPagosSlot(slotId));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

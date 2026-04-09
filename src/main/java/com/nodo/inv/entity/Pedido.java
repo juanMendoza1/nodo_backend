@@ -69,4 +69,8 @@ public class Pedido {
         detalles.add(detalle);
         detalle.setPedido(this);
     }
+    
+    @Version
+    @Column(name = "version")
+    private Long version;
 }
