@@ -4,10 +4,12 @@ import com.nodo.inv.entity.Concepto;
 import com.nodo.inv.entity.ConceptoRelacionado;
 import com.nodo.inv.repository.ConceptoRepository;
 import com.nodo.inv.repository.ConceptoRelacionadoRepository;
+import com.nodo.inv.service.engine.Funcion; // 🔥 IMPORTAMOS LA INTERFAZ
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.annotation.PostConstruct;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -22,26 +24,45 @@ public class ConceptoService {
     private final ConceptoRepository conceptoRepository;
     private final ConceptoRelacionadoRepository relacionadoRepository;
 
+    // 🔥 INYECTAMOS TODAS LAS FUNCIONES NATIVAS DE SPRING BOOT
+    private final List<Funcion> funcionesDelMotor; 
+    private Set<String> identificadoresDeFunciones;
+
+    /**
+     * Se ejecuta automáticamente al arrancar la aplicación.
+     * Toma todas las clases que implementen "Funcion" y guarda sus nombres (Ej: "F_SUMA")
+     * en un Set de memoria ultrarrápida O(1).
+     */
+    @PostConstruct
+    public void inicializarFuncionesNativas() {
+        identificadoresDeFunciones = funcionesDelMotor.stream()
+                .map(Funcion::getIdentificador)
+                .collect(Collectors.toSet());
+    }
+
     @Transactional
     public Concepto guardarConcepto(Concepto concepto) {
-        // 1. Validar unicidad del código para la empresa/programa
+        // 1. Validar unicidad del código
         validarCodigoUnico(concepto);
 
-        // 2. Si es una fórmula, validamos el árbol de dependencias
-        if ("FORMULA".equalsIgnoreCase(concepto.getTipoCalculo()) && concepto.getFormula() != null) {
+        // 2. Guardamos primero para que adquiera ID
+        Concepto conceptoGuardado = conceptoRepository.save(concepto);
+
+        // 3. Validar dependencias si es fórmula
+        if ("FORMULA".equalsIgnoreCase(conceptoGuardado.getTipoCalculo()) && conceptoGuardado.getFormula() != null) {
             
-            // Extraemos los códigos (ej: "CERV", "IVA") usando Regex
-            Set<String> codigosVariables = extraerCodigosDeFormula(concepto.getFormula());
+            Set<String> codigosVariables = extraerCodigosDeFormula(conceptoGuardado.getFormula());
+            validarYRegistrarDependencias(conceptoGuardado, codigosVariables);
             
-            // Verificamos que no existan ciclos (A -> B -> A)
-            validarYRegistrarDependencias(concepto, codigosVariables);
+        } else {
+            // Si ya no es fórmula, borramos dependencias huérfanas
+            relacionadoRepository.deleteAll(relacionadoRepository.findByConceptoPadreId(conceptoGuardado.getId()));
         }
 
-        return conceptoRepository.save(concepto);
+        return conceptoGuardado;
     }
 
     private void validarCodigoUnico(Concepto concepto) {
-        // Buscamos si ya existe ese código en el mismo contexto (Empresa/Programa)
         conceptoRepository.findByCodigo(concepto.getCodigo()).ifPresent(existente -> {
             if (!existente.getId().equals(concepto.getId())) {
                 throw new RuntimeException("El código de concepto '" + concepto.getCodigo() + "' ya existe.");
@@ -51,32 +72,35 @@ public class ConceptoService {
 
     private Set<String> extraerCodigosDeFormula(String formula) {
         Set<String> codigos = new HashSet<>();
-        // Buscamos palabras que representen los códigos únicos de los conceptos
         Pattern pattern = Pattern.compile("\\b[a-zA-Z_][a-zA-Z0-9_]*\\b");
         Matcher matcher = pattern.matcher(formula);
+        
         while (matcher.find()) {
-            codigos.add(matcher.group());
+            String palabra = matcher.group();
+            
+            // 🔥 LA LÓGICA PRO: 
+            // Verificamos matemáticamente que no sea un número.
+            // Y verificamos que NO exista dentro del catálogo dinámico de funciones de la Interfaz.
+            if (!palabra.matches("\\d+") && !identificadoresDeFunciones.contains(palabra)) {
+                codigos.add(palabra);
+            }
         }
         return codigos;
     }
 
     private void validarYRegistrarDependencias(Concepto padre, Set<String> codigosHijos) {
-        // Limpiamos relaciones previas en la tabla core
         relacionadoRepository.deleteAll(relacionadoRepository.findByConceptoPadreId(padre.getId()));
 
         for (String codigoHijo : codigosHijos) {
             Concepto hijo = conceptoRepository.findByCodigo(codigoHijo)
-                .orElseThrow(() -> new RuntimeException("Concepto hijo '" + codigoHijo + "' no encontrado."));
+                .orElseThrow(() -> new RuntimeException("Error en la fórmula: La variable '" + codigoHijo + "' no es un concepto válido ni una función nativa del sistema."));
 
-            // Validar que no sea él mismo
             if (hijo.getCodigo().equals(padre.getCodigo())) {
                 throw new RuntimeException("Referencia circular: El concepto no puede depender de sí mismo.");
             }
 
-            // Validar recursivamente el árbol (Matryoshka)
             chequearCicloRecursivo(padre.getCodigo(), hijo);
 
-            // Registrar en core_conceptos_relacionados para auditoría
             ConceptoRelacionado relacion = new ConceptoRelacionado();
             relacion.setConceptoPadre(padre);
             relacion.setConceptoHijo(hijo);
@@ -86,13 +110,13 @@ public class ConceptoService {
     }
 
     private void chequearCicloRecursivo(String codigoOriginal, Concepto conceptoActual) {
-        // Si el concepto actual es una fórmula, revisamos sus hijos
-        if ("FORMULA".equalsIgnoreCase(conceptoActual.getTipoCalculo())) {
+        if ("FORMULA".equalsIgnoreCase(conceptoActual.getTipoCalculo()) && conceptoActual.getFormula() != null) {
             Set<String> hijosDelHijo = extraerCodigosDeFormula(conceptoActual.getFormula());
+            
             if (hijosDelHijo.contains(codigoOriginal)) {
-                throw new RuntimeException("¡Ciclo detectado! " + codigoOriginal + " depende de un concepto que a su vez vuelve a él.");
+                throw new RuntimeException("¡Ciclo detectado! '" + codigoOriginal + "' depende de un concepto que a su vez vuelve a él.");
             }
-            // Seguimos bajando en el árbol
+            
             for (String h : hijosDelHijo) {
                 conceptoRepository.findByCodigo(h).ifPresent(next -> chequearCicloRecursivo(codigoOriginal, next));
             }

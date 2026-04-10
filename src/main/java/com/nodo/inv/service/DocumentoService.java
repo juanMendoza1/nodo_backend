@@ -1,5 +1,6 @@
 package com.nodo.inv.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nodo.inv.dto.DocumentoDTO.CrearDocumentoRequest;
 import com.nodo.inv.dto.DocumentoDTO.LineaDetalle;
 import com.nodo.inv.entity.*;
@@ -13,60 +14,48 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class DocumentoService {
 
-    // El Motor Matemático
     private final LiquidacionEngine liquidacionEngine;
-
-    // Repositorios
     private final DocumentoRepository documentoRepository;
     private final TipoDocumentoRepository tipoDocumentoRepository;
     private final ConceptoLiquidacionRepository recetaRepository;
     private final ConceptoRepository conceptoRepository;
-    
-    // Asumo que tienes estos repositorios básicos, si no, luego los creamos
     private final EmpresaRepository empresaRepository;
     private final ProgramaRepository programaRepository;
     private final TerceroRepository terceroRepository;
+    
+    // 🔥 NUEVAS INYECCIONES PARA LOS RETOS
+    private final ConsecutivoDocumentoRepository consecutivoRepository;
+    private final ObjectMapper objectMapper; // Para convertir la petición a JSON
 
     /**
-     * MÉTODO ORQUESTADOR: Construye una factura/documento desde cero usando el Motor.
+     * 1. MÉTODO ORQUESTADOR: Construye una factura nueva.
      */
     @Transactional
     public Documento generarDocumentoLiquidacion(CrearDocumentoRequest request) {
-        log.info("Iniciando liquidación para Empresa ID: {}, Programa ID: {}", request.empresaId(), request.programaId());
+        log.info("Iniciando liquidación para Empresa ID: {}", request.empresaId());
 
-        // 1. OBTENER LAS PIEZAS BÁSICAS DE LA BD
-        Empresa empresa = empresaRepository.findById(request.empresaId())
-                .orElseThrow(() -> new IllegalArgumentException("Empresa no encontrada"));
-        Programa programa = programaRepository.findById(request.programaId())
-                .orElseThrow(() -> new IllegalArgumentException("Programa no encontrado"));
-        Tercero tercero = terceroRepository.findById(request.terceroId())
-                .orElseThrow(() -> new IllegalArgumentException("Tercero no encontrado"));
-        TipoDocumento tipoDoc = tipoDocumentoRepository.findByCodigo(request.tipoDocumentoCodigo())
-                .orElseThrow(() -> new IllegalArgumentException("Tipo de documento inválido"));
+        Empresa empresa = empresaRepository.findById(request.empresaId()).orElseThrow();
+        Programa programa = programaRepository.findById(request.programaId()).orElseThrow();
+        Tercero tercero = terceroRepository.findById(request.terceroId()).orElseThrow();
+        TipoDocumento tipoDoc = tipoDocumentoRepository.findByCodigo(request.tipoDocumentoCodigo()).orElseThrow();
 
-        // 2. BUSCAR LA "RECETA" (Las fórmulas y conceptos que configuró el Admin)
         List<ConceptoLiquidacion> receta = recetaRepository.obtenerRecetaDeLiquidacion(
-                request.codigoLiquidacion(), 
-                empresa.getId(), 
-                programa.getId()
-        );
+                request.codigoLiquidacion(), empresa.getId(), programa.getId());
 
         if (receta.isEmpty()) {
-            throw new RuntimeException("No hay una plantilla de liquidación configurada para el código: " + request.codigoLiquidacion());
+            throw new RuntimeException("No hay una plantilla configurada para: " + request.codigoLiquidacion());
         }
 
-        // 3. LLAMAR AL CEREBRO MATEMÁTICO (Aquí ocurre la magia)
-        // Le pasamos la receta y los valores que mandó el Frontend (Ej: CERV -> 50000)
+        // Llamar al motor matemático
         List<LineaDetalle> lineasCalculadas = liquidacionEngine.ejecutarLiquidacion(receta, request.valoresOperativos());
 
-        // 4. CREAR LA CABECERA DEL DOCUMENTO OFICIAL
+        // Crear la cabecera
         Documento nuevoDocumento = new Documento();
         nuevoDocumento.setEmpresa(empresa);
         nuevoDocumento.setPrograma(programa);
@@ -74,31 +63,36 @@ public class DocumentoService {
         nuevoDocumento.setTipoDocumento(tipoDoc);
         nuevoDocumento.setFechaEmision(LocalDateTime.now());
         nuevoDocumento.setEstado("EMITIDO");
-        // Lógica de consecutivo (Se puede hacer más compleja después)
-        nuevoDocumento.setConsecutivo(generarConsecutivo(tipoDoc.getCodigo(), empresa.getId()));
+        
+        // 🔥 SOLUCIÓN RETO 1: Generador Seguro de Consecutivos
+        nuevoDocumento.setConsecutivo(generarConsecutivoSeguro(empresa, tipoDoc));
 
-        // 5. TRADUCIR LA RESPUESTA DEL MOTOR A ENTIDADES DE BD (DocumentoDetalle)
+        // 🔥 SOLUCIÓN RETO 2: Guardamos el "ADN" de la petición original en el metadataJson
+        try {
+            String jsonOriginal = objectMapper.writeValueAsString(request);
+            nuevoDocumento.setMetadataJson(jsonOriginal);
+        } catch (Exception e) {
+            log.warn("No se pudo serializar la petición original", e);
+        }
+
+        // Traducir las líneas
         BigDecimal granTotal = BigDecimal.ZERO;
         BigDecimal granSaldo = BigDecimal.ZERO;
 
         for (LineaDetalle lineaDTO : lineasCalculadas) {
-            // Buscamos el concepto real para enlazarlo
-        	Concepto concepto = conceptoRepository.findByCodigo(lineaDTO.conceptoCodigo())
+            Concepto concepto = conceptoRepository.findByCodigo(lineaDTO.conceptoCodigo())
                     .orElseThrow(() -> new RuntimeException("Concepto no encontrado: " + lineaDTO.conceptoCodigo()));
 
             DocumentoDetalle detalle = new DocumentoDetalle();
             detalle.setConcepto(concepto);
             detalle.setCantidad(lineaDTO.cantidad());
-            detalle.setValorUnitario(lineaDTO.valorTotal().divide(lineaDTO.cantidad())); // total / cant
+            detalle.setValorUnitario(lineaDTO.valorTotal().divide(lineaDTO.cantidad())); 
             detalle.setValorTotal(lineaDTO.valorTotal());
-            detalle.setValorReal(lineaDTO.saldo()); // Recuerda que el DTO mapeaba el valor real en saldo
+            detalle.setValorReal(lineaDTO.saldo()); 
             detalle.setSaldo(lineaDTO.saldo());
             detalle.setNaturaleza(tipoDoc.getNaturaleza());
 
-            // Agregamos el detalle a la cabecera (Esto usa el método addDetalle que creamos en la entidad)
             nuevoDocumento.addDetalle(detalle);
-
-            // Sumamos a los totales globales
             granTotal = granTotal.add(detalle.getValorTotal());
             granSaldo = granSaldo.add(detalle.getSaldo());
         }
@@ -106,17 +100,71 @@ public class DocumentoService {
         nuevoDocumento.setTotalDocumento(granTotal);
         nuevoDocumento.setSaldoDocumento(granSaldo);
 
-        // 6. PERSISTIR EN LA BASE DE DATOS (El guardado final)
-        log.info("Guardando documento total: ${}", granTotal);
         return documentoRepository.save(nuevoDocumento);
     }
 
     /**
-     * Lógica temporal para generar consecutivos (Ej: FV-0001)
-     * En un entorno real de alta concurrencia, esto usaría una tabla de secuencias.
+     * 2. EL NUEVO PODER: Reliquidar un documento existente
      */
-    private String generarConsecutivo(String prefijoDoc, Long empresaId) {
-        long conteoActual = documentoRepository.count(); // Temporal para la prueba
-        return prefijoDoc + "-" + String.format("%06d", conteoActual + 1);
+    @Transactional
+    public Documento reliquidarDocumento(Long idDocumentoOriginal) {
+        // 1. Buscamos el documento original
+        Documento original = documentoRepository.findById(idDocumentoOriginal)
+                .orElseThrow(() -> new RuntimeException("Documento original no encontrado"));
+
+        if ("ANULADO".equals(original.getEstado())) {
+            throw new RuntimeException("El documento ya se encuentra anulado. No se puede reliquidar de nuevo.");
+        }
+
+        // 2. Extraemos el "ADN" (La petición original)
+        CrearDocumentoRequest peticionOriginal;
+        try {
+            peticionOriginal = objectMapper.readValue(original.getMetadataJson(), CrearDocumentoRequest.class);
+        } catch (Exception e) {
+            throw new RuntimeException("No se pudo leer la metadata original para realizar la reliquidación.");
+        }
+
+        // 3. Anulamos el viejo documento (Nunca borramos en contabilidad, solo anulamos)
+        original.setEstado("ANULADO");
+        original.setObservaciones("ANULADO POR RELIQUIDACIÓN. Saldos en cero.");
+        original.setSaldoDocumento(BigDecimal.ZERO); // Borramos el saldo para que no aparezca en cartera
+        
+        // Ponemos el saldo de cada línea en cero también
+        original.getDetalles().forEach(det -> det.setSaldo(BigDecimal.ZERO));
+        
+        documentoRepository.save(original);
+
+        // 4. Generamos el nuevo documento clonando la petición (Pasará por el motor de nuevo y aplicará las fórmulas actualizadas)
+        Documento nuevoDocumento = generarDocumentoLiquidacion(peticionOriginal);
+        
+        // 5. Los vinculamos para mantener el rastro de auditoría
+        nuevoDocumento.setDocumentoPadre(original);
+        nuevoDocumento.setObservaciones("RELIQUIDACIÓN DEL DOCUMENTO: " + original.getConsecutivo());
+        
+        return documentoRepository.save(nuevoDocumento);
+    }
+
+    /**
+     * 3. LÓGICA DE CONSECUTIVO SEGURO (Bloqueo Pesimista)
+     */
+    private String generarConsecutivoSeguro(Empresa empresa, TipoDocumento tipoDoc) {
+        // Busca el contador en la BD, o lo crea desde cero si es la primera factura de esa empresa
+        ConsecutivoDocumento consecutivo = consecutivoRepository
+                .findByEmpresaAndTipoDocumentoForUpdate(empresa.getId(), tipoDoc.getId())
+                .orElseGet(() -> {
+                    ConsecutivoDocumento nuevo = new ConsecutivoDocumento();
+                    nuevo.setEmpresa(empresa);
+                    nuevo.setTipoDocumento(tipoDoc);
+                    nuevo.setPrefijo(tipoDoc.getCodigo()); // Ej: "FV"
+                    nuevo.setActual(0L);
+                    return consecutivoRepository.save(nuevo);
+                });
+
+        // Sumamos 1 al contador
+        consecutivo.setActual(consecutivo.getActual() + 1);
+        consecutivoRepository.save(consecutivo);
+
+        // Retornamos formateado (Ej: FV-000001)
+        return consecutivo.getPrefijo() + "-" + String.format("%06d", consecutivo.getActual());
     }
 }

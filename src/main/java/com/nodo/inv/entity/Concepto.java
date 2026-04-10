@@ -71,4 +71,9 @@ public class Concepto {
     
     @Column(name = "conc_es_funcion")
     private Boolean esFuncion = false;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usu_ideregistro")
+    private Usuario usuario; // Quien lo creó o modificó
+    
 }
