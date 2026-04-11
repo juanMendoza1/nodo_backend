@@ -30,7 +30,7 @@ public class ConceptoLiquidacion {
 
     // RENDIMIENTO: ¿A qué programa pertenece este cruce? (Para queries más ágiles)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "pro_ideregistro", nullable = false)
+    @JoinColumn(name = "pro_ideregistro")
     private Programa programa;
 
     // El orden en que el motor debe evaluar los conceptos (Ej: 1. Cervezas, 2. Descuentos, 3. IVA)

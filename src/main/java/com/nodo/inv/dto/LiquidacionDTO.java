@@ -7,6 +7,7 @@ public record LiquidacionDTO(
 	    String codigo,
 	    String nombre,
 	    Long programaId,
+	    Long tipoDocumentoId,
 	    List<ConceptoLiquidacionDTO> conceptosRelacionados
 	) {}
 

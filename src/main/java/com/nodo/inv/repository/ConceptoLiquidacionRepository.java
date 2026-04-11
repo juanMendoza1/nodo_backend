@@ -11,16 +11,13 @@ import java.util.List;
 @Repository
 public interface ConceptoLiquidacionRepository extends JpaRepository<ConceptoLiquidacion, Long> {
     
-    // 🔥 LA CONSULTA ESTRELLA: 
-    // "Tráeme la receta exacta que configuró esta Empresa, para esta Plantilla, ordenada por paso de cálculo"
-    @Query("SELECT cl FROM ConceptoLiquidacion cl " +
-           "JOIN FETCH cl.concepto c " +
-           "WHERE cl.liquidacion.codigo = :codigoLiquidacion " +
-           "AND cl.empresa.id = :empresaId " +
-           "AND cl.programa.id = :programaId " +
-           "ORDER BY cl.ordenCalculo ASC")
-    List<ConceptoLiquidacion> obtenerRecetaDeLiquidacion(
-            @Param("codigoLiquidacion") String codigoLiquidacion,
-            @Param("empresaId") Long empresaId,
-            @Param("programaId") Long programaId);
+	@Query("SELECT cl FROM ConceptoLiquidacion cl JOIN FETCH cl.concepto c " +
+	           "WHERE cl.liquidacion.codigo = :codigoLiquidacion " +
+	           "AND cl.empresa.id = :empresaId " +
+	           "AND ((:programaId = 0 AND cl.programa IS NULL) OR cl.programa.id = :programaId) " +
+	           "ORDER BY cl.ordenCalculo ASC")
+	    List<ConceptoLiquidacion> obtenerRecetaDeLiquidacion(
+	            @Param("codigoLiquidacion") String codigoLiquidacion,
+	            @Param("empresaId") Long empresaId,
+	            @Param("programaId") Long programaId);
 }

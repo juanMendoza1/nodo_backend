@@ -24,13 +24,33 @@ public class DocumentoController {
     private final DocumentoRepository documentoRepository;
 
     // ======================================================================
-    // 1. CREACIÓN / LIQUIDACIÓN (El motor en acción)
+    // 1. LIQUIDACIONES 1 a 1 (SÍNCRONAS - RESPUESTA INMEDIATA)
     // ======================================================================
     
+    /**
+     * Ejecuta el motor matemático en memoria y devuelve la Proforma.
+     * No toca la base de datos ni afecta consecutivos.
+     */
+    @PostMapping("/preliquidar")
+    @PreAuthorize("hasAnyRole('OPERATIVO', 'ADMIN', 'SUPER')")
+    public ResponseEntity<?> preliquidarDocumento(@RequestBody CrearDocumentoRequest request) {
+        log.info("Calculando Proforma en Memoria para Plantilla: {}", request.codigoLiquidacion());
+        try {
+            Map<String, Object> proforma = documentoService.preliquidarDocumento(request);
+            return ResponseEntity.ok(proforma);
+        } catch (Exception e) {
+            log.error("Error al pre-liquidar documento: ", e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Ejecuta el motor matemático, sella el documento en BD y afecta cartera.
+     */
     @PostMapping("/liquidar")
     @PreAuthorize("hasAnyRole('OPERATIVO', 'ADMIN', 'SUPER')")
     public ResponseEntity<?> liquidarDocumento(@RequestBody CrearDocumentoRequest request) {
-        log.info("Recibida petición de liquidación para la plantilla: {}", request.codigoLiquidacion());
+        log.info("Sellando liquidación para Plantilla: {}", request.codigoLiquidacion());
         try {
             Documento nuevoDocumento = documentoService.generarDocumentoLiquidacion(request);
             
@@ -47,20 +67,35 @@ public class DocumentoController {
     }
 
     // ======================================================================
-    // 2. CONSULTAS (Para mostrar en las tablas de React)
+    // 2. LIQUIDACIÓN MASIVA BATCH (CON HILOS - PRÓXIMA IMPLEMENTACIÓN)
+    // ======================================================================
+    
+    /**
+     * @Async -> Este endpoint no dejará esperando al Frontend.
+     * Devolverá un "202 Accepted" de inmediato y el cálculo pesado de los N empleados
+     * se irá a un hilo secundario de Spring Boot informando por WebSocket.
+     */
+    @PostMapping("/liquidar-lote")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<?> liquidarPorLote(@RequestBody List<CrearDocumentoRequest> solicitudes) {
+        // TODO: Enviar 'solicitudes' a un método @Async en el Service
+        // TODO: Retornar mensaje "Proceso en segundo plano iniciado. Siga el estado en el Monitor."
+        return ResponseEntity.accepted().body(Map.of("mensaje", "Lote de liquidación iniciado (" + solicitudes.size() + " registros)"));
+    }
+
+    // ======================================================================
+    // 3. CONSULTAS Y RELIQUIDACIÓN
     // ======================================================================
 
     @GetMapping("/empresa/{empresaId}/historial")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
     public ResponseEntity<List<Documento>> obtenerHistorialEmpresa(@PathVariable Long empresaId) {
-        // Trae todas las facturas de la empresa ordenadas de la más nueva a la más vieja
         return ResponseEntity.ok(documentoRepository.findByEmpresaIdOrderByFechaEmisionDesc(empresaId));
     }
 
     @GetMapping("/empresa/{empresaId}/cartera")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
     public ResponseEntity<List<Documento>> obtenerCarteraPendiente(@PathVariable Long empresaId) {
-        // Trae solo las facturas que tienen un saldo mayor a 0 (Las que el cliente debe)
         return ResponseEntity.ok(documentoRepository.findDocumentosConSaldoPendiente(empresaId));
     }
 

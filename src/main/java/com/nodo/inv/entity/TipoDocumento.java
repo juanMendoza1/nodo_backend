@@ -1,7 +1,13 @@
 package com.nodo.inv.entity;
 
+import java.util.HashSet;
+import java.util.Set;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.ToString;
 
 @Data
 @Entity
@@ -24,4 +30,14 @@ public class TipoDocumento {
 
     @Column(name = "tdoc_estado")
     private Boolean activo = true;
+    
+    @JsonIgnore
+    @ToString.Exclude
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "con_flujo_documento",
+        joinColumns = @JoinColumn(name = "tdoc_origen_id"),
+        inverseJoinColumns = @JoinColumn(name = "tdoc_permitido_id")
+    )
+    private Set<TipoDocumento> documentosPermitidos = new HashSet<>();
 }

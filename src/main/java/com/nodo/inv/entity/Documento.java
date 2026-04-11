@@ -23,8 +23,8 @@ public class Documento {
     private Empresa empresa;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "pro_ideregistro", nullable = false)
-    private Programa programa; // Origen del documento (Ej: NÓMINA_SLOT, POS_BILLAR)
+    @JoinColumn(name = "pro_ideregistro")
+    private Programa programa; 
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ter_ideregistro", nullable = false)

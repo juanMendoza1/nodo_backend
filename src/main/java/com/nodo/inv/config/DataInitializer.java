@@ -10,6 +10,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -30,6 +32,9 @@ public class DataInitializer implements CommandLineRunner {
     private final EstructuraRepository estructuraRepository;
     private final UnidadRepository unidadRepository;
     private final PasswordEncoder passwordEncoder;
+    
+    // 🔥 Repositorio de Tipos de Documento inyectado
+    private final TipoDocumentoRepository tipoDocumentoRepository;
 
     @Override
     @Transactional
@@ -53,12 +58,12 @@ public class DataInitializer implements CommandLineRunner {
         
         Estructura estTipItem = checkAndCreateEstructura(claseGlobal, "TIPO DE ÍTEM DE VENTA", "TIP_ITEM_VTA");
         
-        // Estas son las "Unidades" que reemplazan a "esApuesta"
-        Unidad uniItemProducto = checkAndCreateUnidad(estTipItem, "Producto Físico", "ITEM_PRODUCTO");
-        Unidad uniItemServicio = checkAndCreateUnidad(estTipItem, "Servicio General", "ITEM_SERVICIO");
-        Unidad uniItemTiempo = checkAndCreateUnidad(estTipItem, "Alquiler / Tiempo de Juego", "ITEM_TIEMPO");
-        Unidad uniItemRecargo = checkAndCreateUnidad(estTipItem, "Recargo / Propina", "ITEM_RECARGO");
-        Unidad uniItemApuesta = checkAndCreateUnidad(estTipItem, "Apuesta / Duelo", "ITEM_APUESTA");
+        // Unidades de venta dinámicas (Agnóstico)
+        checkAndCreateUnidad(estTipItem, "Producto Físico", "ITEM_PRODUCTO");
+        checkAndCreateUnidad(estTipItem, "Servicio General", "ITEM_SERVICIO");
+        checkAndCreateUnidad(estTipItem, "Alquiler / Tiempo de Juego", "ITEM_TIEMPO");
+        checkAndCreateUnidad(estTipItem, "Recargo / Propina", "ITEM_RECARGO");
+        checkAndCreateUnidad(estTipItem, "Apuesta / Duelo", "ITEM_APUESTA");
         
         // ==========================================
         // 2. GIROS DE NEGOCIO, ROLES Y PERMISOS (SaaS)
@@ -70,14 +75,14 @@ public class DataInitializer implements CommandLineRunner {
         Rol adminRol = checkAndCreateRol("ADMIN", "Propietario / Tenant del Negocio");
         Rol opRol = checkAndCreateRol("OPERATIVO", "Cajero / Mesero / Operador de TPV");
         
-        // 🔥 CREACIÓN DE FICHAS DE LEGO (Funcionalidades del Sistema)
-        Permiso modInventario = checkAndCreatePermiso("MOD_INVENTARIO", "Módulo de Gestión de Inventarios y Catálogo");
-        Permiso modCaja = checkAndCreatePermiso("MOD_CAJA", "Módulo de Punto de Venta y Facturación");
-        Permiso modTablets = checkAndCreatePermiso("MOD_TABLETS", "Módulo de Gestión de Dispositivos (Tablets y QR)");
-        Permiso modPersonal = checkAndCreatePermiso("MOD_PERSONAL", "Módulo de Gestión de Empleados y Slots");
-        Permiso modLiquidacion = checkAndCreatePermiso("MOD_LIQUID_SLOT", "Módulo Avanzado de Liquidación de Nómina y Comisiones");
+        // Permisos (Fichas de Lego)
+        checkAndCreatePermiso("MOD_INVENTARIO", "Módulo de Gestión de Inventarios y Catálogo");
+        checkAndCreatePermiso("MOD_CAJA", "Módulo de Punto de Venta y Facturación");
+        checkAndCreatePermiso("MOD_TABLETS", "Módulo de Gestión de Dispositivos (Tablets y QR)");
+        checkAndCreatePermiso("MOD_PERSONAL", "Módulo de Gestión de Empleados y Slots");
+        checkAndCreatePermiso("MOD_LIQUID_SLOT", "Módulo Avanzado de Liquidación de Nómina y Comisiones");
 
-        // 🔥 CREACIÓN DE PROGRAMAS (Paquetes a vender)
+        // Programas (Paquetes)
         Programa progInv = checkAndCreatePrograma("Inventario y Catálogo", "INV", "Gestión de stock y productos");
         Programa progPosBasic = checkAndCreatePrograma("Punto de Venta (Básico)", "POS_BASIC", "Caja, comandas y personal básico");
         Programa progPosPro = checkAndCreatePrograma("Punto de Venta (Premium)", "POS_PRO", "Caja, personal y liquidación automática");
@@ -92,7 +97,7 @@ public class DataInitializer implements CommandLineRunner {
             Tercero terEmpNodo = crearTerceroBasic("900000000", "Sistemas", "Nodo SAS", "contacto@nodo.com", uniNIT, uniJuridica);
             Empresa empNodo = crearEmpresaBasic(terEmpNodo, "NODO MASTER INC.", giroRetail);
             
-            // 3.2. Asignamos TODOS los programas al SuperAdmin para que no se le bloquee la pantalla
+            // 3.2. Asignación de Programas y Suscripciones
             vincularPrograma(empNodo, progInv);
             vincularPrograma(empNodo, progPosBasic);
             vincularPrograma(empNodo, progPosPro);
@@ -100,18 +105,42 @@ public class DataInitializer implements CommandLineRunner {
             crearSuscripcion(empNodo, progInv, 999);
             crearSuscripcion(empNodo, progPosPro, 999);
 
-            // 3.3. Creamos tus credenciales de acceso
+            // 3.3. Credenciales
             crearUsuarioBasic("superadmin", "admin123", terJuan, empNodo, superRol);
+            
+            // ==========================================
+            // 4. TIPOS DE DOCUMENTO Y FLUJO CONTABLE
+            // ==========================================
+            // Creamos los documentos base con su naturaleza
+            TipoDocumento fv = checkAndCreateTipoDocumento("FV", "Factura de Venta", "SUMA");
+            TipoDocumento ce = checkAndCreateTipoDocumento("CE", "Comprobante de Egreso", "RESTA"); 
+            TipoDocumento rc = checkAndCreateTipoDocumento("RC", "Recibo de Caja", "RESTA"); 
+            TipoDocumento nc = checkAndCreateTipoDocumento("NC", "Nota Crédito", "RESTA");
+            TipoDocumento nd = checkAndCreateTipoDocumento("ND", "Nota Débito", "SUMA");
+
+            // 🔥 Reglas de Flujo de Documentos (Lo que hablamos del Flujo PRO)
+            // A una Factura (FV) se le pueden aplicar abonos (RC), devoluciones (NC) o recargos (ND)
+            if (fv.getDocumentosPermitidos().isEmpty()) {
+                fv.setDocumentosPermitidos(new HashSet<>(Set.of(rc, nc, nd)));
+                tipoDocumentoRepository.save(fv);
+            }
+            
+            // A un Egreso (CE) se le pueden aplicar notas de ajuste
+            if (ce.getDocumentosPermitidos().isEmpty()) {
+                ce.setDocumentosPermitidos(new HashSet<>(Set.of(nc, nd)));
+                tipoDocumentoRepository.save(ce);
+            }
 
             System.out.println("-----------------------------------------");
             System.out.println("🚀 SISTEMA NODO INICIALIZADO LIMPIO");
             System.out.println("👑 Credenciales: superadmin / admin123");
+            System.out.println("💎 Flujo Contable configurado: FV, CE, RC, NC, ND");
             System.out.println("-----------------------------------------");
         }
     }
 
     // ==========================================
-    // MÉTODOS AUXILIARES (Helpers Limpios)
+    // MÉTODOS AUXILIARES (Helpers)
     // ==========================================
 
     private Clase checkAndCreateClase(String nombre, String codigo, String desc) {
@@ -246,5 +275,17 @@ public class DataInitializer implements CommandLineRunner {
         sub.setDispositivosActivos(0);
         sub.setActivo(true);
         suscripcionProgramaRepository.save(sub);
+    }
+
+    // Helper para garantizar la existencia de Tipos de Documento
+    private TipoDocumento checkAndCreateTipoDocumento(String cod, String nombre, String naturaleza) {
+        return tipoDocumentoRepository.findByCodigo(cod).orElseGet(() -> {
+            TipoDocumento td = new TipoDocumento();
+            td.setCodigo(cod);
+            td.setNombre(nombre);
+            td.setNaturaleza(naturaleza);
+            td.setActivo(true);
+            return tipoDocumentoRepository.save(td);
+        });
     }
 }

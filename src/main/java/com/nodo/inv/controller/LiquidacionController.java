@@ -69,12 +69,10 @@ public class LiquidacionController {
         }
     }
 
-    /**
-     * Lista las plantillas disponibles según el programa (SaaS).
-     */
     @GetMapping("/programa/{programaId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')") // 🔥 AJUSTE: Seguridad agregada
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
     public ResponseEntity<List<Liquidacion>> listarPorPrograma(@PathVariable Long programaId) {
+        if (programaId == 0) return ResponseEntity.ok(liquidacionRepository.findTransversales());
         return ResponseEntity.ok(liquidacionRepository.findByProgramaId(programaId));
     }
     

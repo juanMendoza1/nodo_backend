@@ -22,9 +22,14 @@ public class Liquidacion {
 
     // A qué programa (SaaS) pertenece esta plantilla de liquidación
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "pro_ideregistro", nullable = false)
+    @JoinColumn(name = "pro_ideregistro")
     private Programa programa;
 
     @Column(name = "liq_es_global")
-    private Boolean esGlobal = true; // Creada por el SuperAdmin
+    private Boolean esGlobal = true; 
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tdoc_ideregistro", nullable = false)
+    private TipoDocumento tipoDocumentoGenerado;
+    
 }
