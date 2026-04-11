@@ -99,7 +99,11 @@ public class LiquidacionSlotController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
         try {
             List<Venta> ventas = liquidacionService.consultarVentasRango(slotId, fechaInicio, fechaFin);
-            BigDecimal total = ventas.stream().map(Venta::getTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+            BigDecimal total = ventas.stream()
+                                     .map(Venta::getGranTotal)
+                                     .reduce(BigDecimal.ZERO, BigDecimal::add);
+                                     
             return ResponseEntity.ok(Map.of(
                 "cantidadVentas", ventas.size(),
                 "totalRecaudado", total

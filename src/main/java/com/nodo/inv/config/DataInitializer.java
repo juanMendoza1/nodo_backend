@@ -51,6 +51,15 @@ public class DataInitializer implements CommandLineRunner {
         Unidad uniNatural = checkAndCreateUnidad(estTipTer, "Persona Natural", "NATURAL");
         Unidad uniJuridica = checkAndCreateUnidad(estTipTer, "Persona Jurídica", "JURIDICA");
         
+        Estructura estTipItem = checkAndCreateEstructura(claseGlobal, "TIPO DE ÍTEM DE VENTA", "TIP_ITEM_VTA");
+        
+        // Estas son las "Unidades" que reemplazan a "esApuesta"
+        Unidad uniItemProducto = checkAndCreateUnidad(estTipItem, "Producto Físico", "ITEM_PRODUCTO");
+        Unidad uniItemServicio = checkAndCreateUnidad(estTipItem, "Servicio General", "ITEM_SERVICIO");
+        Unidad uniItemTiempo = checkAndCreateUnidad(estTipItem, "Alquiler / Tiempo de Juego", "ITEM_TIEMPO");
+        Unidad uniItemRecargo = checkAndCreateUnidad(estTipItem, "Recargo / Propina", "ITEM_RECARGO");
+        Unidad uniItemApuesta = checkAndCreateUnidad(estTipItem, "Apuesta / Duelo", "ITEM_APUESTA");
+        
         // ==========================================
         // 2. GIROS DE NEGOCIO, ROLES Y PERMISOS (SaaS)
         // ==========================================

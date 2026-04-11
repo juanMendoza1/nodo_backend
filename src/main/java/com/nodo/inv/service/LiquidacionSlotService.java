@@ -146,7 +146,9 @@ public class LiquidacionSlotService {
 
         // 1. BASE DE VENTAS (Usando inv_venta)
         List<Venta> ventas = ventaRepo.findByOperarioAndRangoFechas(slotId, inicioDia, finDia);
-        BigDecimal baseVentas = ventas.stream().map(Venta::getTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal baseVentas = ventas.stream()
+                .map(Venta::getGranTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // 2. DÍAS TRABAJADOS (Días únicos con ventas)
         long diasTrabajados = ventas.stream().map(v -> v.getFecha().toLocalDate()).distinct().count();
