@@ -1,9 +1,11 @@
 package com.nodo.inv.service;
 
 import com.nodo.inv.dto.ProgramaDTO;
+import com.nodo.inv.entity.DominioOperativo;
 import com.nodo.inv.entity.Permiso;
 import com.nodo.inv.entity.Programa;
 import com.nodo.inv.entity.ProgramaPermiso;
+import com.nodo.inv.repository.DominioOperativoRepository;
 import com.nodo.inv.repository.PermisoRepository;
 import com.nodo.inv.repository.ProgramaPermisoRepository;
 import com.nodo.inv.repository.ProgramaRepository;
@@ -21,6 +23,9 @@ public class ProgramaService {
     private final ProgramaRepository programaRepository;
     private final PermisoRepository permisoRepository;
     private final ProgramaPermisoRepository programaPermisoRepository;
+    
+    // 🔥 INYECTAMOS EL REPOSITORIO DE DOMINIOS
+    private final DominioOperativoRepository dominioOperativoRepository;
 
     @Transactional(readOnly = true)
     public List<ProgramaDTO> obtenerTodos() {
@@ -49,9 +54,17 @@ public class ProgramaService {
         programa.setVersion(dto.getVersion() != null ? dto.getVersion() : "1.0.0");
         programa.setActivo(dto.getActivo() != null ? dto.getActivo() : true);
 
+        // 🔥 NUEVO: LÓGICA DE ASIGNACIÓN DEL DOMINIO OPERATIVO (RELACIÓN JPA)
+        if (dto.getDominioId() != null) {
+            DominioOperativo dominio = dominioOperativoRepository.findById(dto.getDominioId())
+                    .orElseThrow(() -> new RuntimeException("Dominio Operativo no encontrado"));
+            programa.setDominio(dominio);
+        } else {
+            programa.setDominio(null);
+        }
+
         Programa guardado = programaRepository.save(programa);
 
-        // 🔥 GESTIÓN DE LAS PIEZAS DE LEGO (PERMISOS)
         if (dto.getPermisosIds() != null && !dto.getPermisosIds().isEmpty()) {
             for (Long permisoId : dto.getPermisosIds()) {
                 Permiso permiso = permisoRepository.findById(permisoId)
@@ -88,6 +101,12 @@ public class ProgramaService {
         dto.setPermisosIds(permisos.stream().map(pp -> pp.getPermiso().getId()).collect(Collectors.toList()));
         dto.setPermisosCodigos(permisos.stream().map(pp -> pp.getPermiso().getCodigo()).collect(Collectors.toList()));
         
+        // 🔥 MAPEO DEL NUEVO DOMINIO PARA EL FRONTEND
+        if (p.getDominio() != null) {
+            dto.setDominioId(p.getDominio().getId());
+            dto.setDominioNombre(p.getDominio().getNombre());
+        }
+
         return dto;
     }
 }

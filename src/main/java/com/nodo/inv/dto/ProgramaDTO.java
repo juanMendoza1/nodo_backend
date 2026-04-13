@@ -14,4 +14,7 @@ public class ProgramaDTO {
     private Boolean activo;
     private List<Long> permisosIds; 
     private List<String> permisosCodigos;
+    private String dominioOperativo;
+    private Long dominioId; 
+    private String dominioNombre;
 }

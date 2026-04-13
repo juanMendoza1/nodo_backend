@@ -1,7 +1,11 @@
+// src/main/java/com/nodo/inv/entity/Permiso.java
 package com.nodo.inv.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
+import java.util.HashSet;
+import java.util.Set;
 
 @Data
 @Entity
@@ -14,10 +18,17 @@ public class Permiso {
     private Long id;
 
     @Column(name = "per_codigo", nullable = false, unique = true, length = 50)
-    private String codigo; // INV_VIEW, INV_CREA, etc.
+    private String codigo;
 
     @Column(name = "per_descripcion", length = 200)
     private String descripcion;
 
-    // getters y setters
+    @JsonIgnore
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "modulo_dependencia",
+        joinColumns = @JoinColumn(name = "modulo_id"),
+        inverseJoinColumns = @JoinColumn(name = "dependencia_id")
+    )
+    private Set<Permiso> dependencias = new HashSet<>();
 }

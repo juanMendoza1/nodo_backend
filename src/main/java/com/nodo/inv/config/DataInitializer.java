@@ -22,19 +22,17 @@ public class DataInitializer implements CommandLineRunner {
     private final EmpresaRepository empresaRepository;
     private final RolRepository rolRepository;
     private final UsuarioRolRepository usuarioRolRepository;
-    private final ProgramaRepository programaRepository;
-    private final EmpresaProgramaRepository empresaProgramaRepository;
+    // 🔥 Ya no inyectamos ProgramaRepository ni Suscripciones aquí
     private final PermisoRepository permisoRepository;
-    private final RolPermisoRepository rolPermisoRepository;
-    private final SuscripcionProgramaRepository suscripcionProgramaRepository;
     private final GiroNegocioRepository giroNegocioRepository;
     private final ClaseRepository claseRepository;
     private final EstructuraRepository estructuraRepository;
     private final UnidadRepository unidadRepository;
     private final PasswordEncoder passwordEncoder;
-    
-    // 🔥 Repositorio de Tipos de Documento inyectado
     private final TipoDocumentoRepository tipoDocumentoRepository;
+    
+    // 🔥 INYECTAMOS EL NUEVO REPOSITORIO DE DOMINIOS
+    private final DominioOperativoRepository dominioOperativoRepository;
 
     @Override
     @Transactional
@@ -44,10 +42,8 @@ public class DataInitializer implements CommandLineRunner {
         // 1. MOTOR PARAMÉTRICO (LISTAS DESPLEGABLES)
         // ==========================================
         
-        // --- CLASE: PARÁMETROS GLOBALES ---
         Clase claseGlobal = checkAndCreateClase("PARÁMETROS GLOBALES", "GLOBAL", "Configuraciones base transversales a todo el sistema");
 
-        // --- ESTRUCTURAS Y UNIDADES ---
         Estructura estTipId = checkAndCreateEstructura(claseGlobal, "TIPO DE IDENTIFICACIÓN", "TIP_ID");
         Unidad uniCC = checkAndCreateUnidad(estTipId, "Cédula de Ciudadanía", "CC");
         Unidad uniNIT = checkAndCreateUnidad(estTipId, "Número de Identificación Tributaria", "NIT");
@@ -57,8 +53,6 @@ public class DataInitializer implements CommandLineRunner {
         Unidad uniJuridica = checkAndCreateUnidad(estTipTer, "Persona Jurídica", "JURIDICA");
         
         Estructura estTipItem = checkAndCreateEstructura(claseGlobal, "TIPO DE ÍTEM DE VENTA", "TIP_ITEM_VTA");
-        
-        // Unidades de venta dinámicas (Agnóstico)
         checkAndCreateUnidad(estTipItem, "Producto Físico", "ITEM_PRODUCTO");
         checkAndCreateUnidad(estTipItem, "Servicio General", "ITEM_SERVICIO");
         checkAndCreateUnidad(estTipItem, "Alquiler / Tiempo de Juego", "ITEM_TIEMPO");
@@ -66,7 +60,15 @@ public class DataInitializer implements CommandLineRunner {
         checkAndCreateUnidad(estTipItem, "Apuesta / Duelo", "ITEM_APUESTA");
         
         // ==========================================
-        // 2. GIROS DE NEGOCIO, ROLES Y PERMISOS (SaaS)
+        // 2. DOMINIOS OPERATIVOS (MOTORES DE BASE DE DATOS)
+        // ==========================================
+        checkAndCreateDominio("RETAIL", "Ventas, POS y Retail", "inv_", "retailSyncProcessor");
+        checkAndCreateDominio("SERVICIOS_PUBLICOS", "Servicios Públicos (Agua, Luz)", "sp_", "utilitiesSyncProcessor");
+        checkAndCreateDominio("HOSPITALIDAD", "Hotelería y Reservas", "htl_", "hospitalitySyncProcessor");
+        checkAndCreateDominio("AGRO", "Agropecuario / Fincas", "agro_", "agroSyncProcessor");
+
+        // ==========================================
+        // 3. GIROS DE NEGOCIO, ROLES Y MÓDULOS (SaaS)
         // ==========================================
         GiroNegocio giroBillar = checkAndCreateGiro("RESTAURANTE / BILLAR", "REST_BILL", "ARENA_DUELO");
         GiroNegocio giroRetail = checkAndCreateGiro("ZAPATERÍA / RETAIL", "RETAIL", "POS_ESTANDAR");
@@ -75,66 +77,52 @@ public class DataInitializer implements CommandLineRunner {
         Rol adminRol = checkAndCreateRol("ADMIN", "Propietario / Tenant del Negocio");
         Rol opRol = checkAndCreateRol("OPERATIVO", "Cajero / Mesero / Operador de TPV");
         
-        // Permisos (Fichas de Lego)
+        // Permisos (Fichas de Lego / Módulos SaaS)
         checkAndCreatePermiso("MOD_INVENTARIO", "Módulo de Gestión de Inventarios y Catálogo");
         checkAndCreatePermiso("MOD_CAJA", "Módulo de Punto de Venta y Facturación");
         checkAndCreatePermiso("MOD_TABLETS", "Módulo de Gestión de Dispositivos (Tablets y QR)");
         checkAndCreatePermiso("MOD_PERSONAL", "Módulo de Gestión de Empleados y Slots");
         checkAndCreatePermiso("MOD_LIQUID_SLOT", "Módulo Avanzado de Liquidación de Nómina y Comisiones");
 
-        // Programas (Paquetes)
-        Programa progInv = checkAndCreatePrograma("Inventario y Catálogo", "INV", "Gestión de stock y productos");
-        Programa progPosBasic = checkAndCreatePrograma("Punto de Venta (Básico)", "POS_BASIC", "Caja, comandas y personal básico");
-        Programa progPosPro = checkAndCreatePrograma("Punto de Venta (Premium)", "POS_PRO", "Caja, personal y liquidación automática");
+        // 🔥 LA CREACIÓN DE PROGRAMAS Y SUSCRIPCIONES HA SIDO ELIMINADA DE AQUÍ
+        // (Ahora se hace dinámicamente desde el SuperAdminDashboard)
 
         // ==========================================
-        // 3. ESTRUCTURA MAESTRA (EL SUPER ADMIN NODO)
+        // 4. ESTRUCTURA MAESTRA (EL SUPER ADMIN NODO)
         // ==========================================
         if (usuarioRepository.findByLogin("superadmin").isEmpty()) {
             
-            // 3.1. Tercero y Empresa Dueña del Software (Tú)
+            // Tercero y Empresa Dueña del Software (Tú)
             Tercero terJuan = crearTerceroBasic("101010", "Master", "Admin", "admin@nodo.com", uniCC, uniNatural);
             Tercero terEmpNodo = crearTerceroBasic("900000000", "Sistemas", "Nodo SAS", "contacto@nodo.com", uniNIT, uniJuridica);
             Empresa empNodo = crearEmpresaBasic(terEmpNodo, "NODO MASTER INC.", giroRetail);
             
-            // 3.2. Asignación de Programas y Suscripciones
-            vincularPrograma(empNodo, progInv);
-            vincularPrograma(empNodo, progPosBasic);
-            vincularPrograma(empNodo, progPosPro);
-
-            crearSuscripcion(empNodo, progInv, 999);
-            crearSuscripcion(empNodo, progPosPro, 999);
-
-            // 3.3. Credenciales
+            // Credenciales SuperAdmin
             crearUsuarioBasic("superadmin", "admin123", terJuan, empNodo, superRol);
             
             // ==========================================
-            // 4. TIPOS DE DOCUMENTO Y FLUJO CONTABLE
+            // 5. TIPOS DE DOCUMENTO Y FLUJO CONTABLE
             // ==========================================
-            // Creamos los documentos base con su naturaleza
             TipoDocumento fv = checkAndCreateTipoDocumento("FV", "Factura de Venta", "SUMA");
             TipoDocumento ce = checkAndCreateTipoDocumento("CE", "Comprobante de Egreso", "RESTA"); 
             TipoDocumento rc = checkAndCreateTipoDocumento("RC", "Recibo de Caja", "RESTA"); 
             TipoDocumento nc = checkAndCreateTipoDocumento("NC", "Nota Crédito", "RESTA");
             TipoDocumento nd = checkAndCreateTipoDocumento("ND", "Nota Débito", "SUMA");
 
-            // 🔥 Reglas de Flujo de Documentos (Lo que hablamos del Flujo PRO)
-            // A una Factura (FV) se le pueden aplicar abonos (RC), devoluciones (NC) o recargos (ND)
+            // Reglas de Flujo de Documentos
             if (fv.getDocumentosPermitidos().isEmpty()) {
                 fv.setDocumentosPermitidos(new HashSet<>(Set.of(rc, nc, nd)));
                 tipoDocumentoRepository.save(fv);
             }
-            
-            // A un Egreso (CE) se le pueden aplicar notas de ajuste
             if (ce.getDocumentosPermitidos().isEmpty()) {
                 ce.setDocumentosPermitidos(new HashSet<>(Set.of(nc, nd)));
                 tipoDocumentoRepository.save(ce);
             }
 
             System.out.println("-----------------------------------------");
-            System.out.println("🚀 SISTEMA NODO INICIALIZADO LIMPIO");
-            System.out.println("👑 Credenciales: superadmin / admin123");
-            System.out.println("💎 Flujo Contable configurado: FV, CE, RC, NC, ND");
+            System.out.println("🚀 NODO INSTALLER: BASE DE DATOS INICIALIZADA (CLEAN MODE)");
+            System.out.println("👑 Credenciales Master: superadmin / admin123");
+            System.out.println("👉 ¡Listo para crear Programas SaaS desde la Interfaz Web!");
             System.out.println("-----------------------------------------");
         }
     }
@@ -142,6 +130,18 @@ public class DataInitializer implements CommandLineRunner {
     // ==========================================
     // MÉTODOS AUXILIARES (Helpers)
     // ==========================================
+
+    private DominioOperativo checkAndCreateDominio(String codigo, String nombre, String prefijo, String bean) {
+        return dominioOperativoRepository.findByCodigo(codigo).orElseGet(() -> {
+            DominioOperativo dom = new DominioOperativo();
+            dom.setCodigo(codigo);
+            dom.setNombre(nombre);
+            dom.setPrefijoTablas(prefijo);
+            dom.setServiceProcessorBean(bean);
+            dom.setActivo(true);
+            return dominioOperativoRepository.save(dom);
+        });
+    }
 
     private Clase checkAndCreateClase(String nombre, String codigo, String desc) {
         return claseRepository.findByCodigo(codigo).orElseGet(() -> {
@@ -207,18 +207,6 @@ public class DataInitializer implements CommandLineRunner {
         });
     }
 
-    private Programa checkAndCreatePrograma(String nom, String cod, String desc) {
-        return programaRepository.findByCodigo(cod).orElseGet(() -> {
-            Programa p = new Programa();
-            p.setNombre(nom);
-            p.setCodigo(cod);
-            p.setDescripcion(desc);
-            p.setActivo(true);
-            p.setVersion("1.0.0");
-            return programaRepository.save(p);
-        });
-    }
-
     private Tercero crearTerceroBasic(String doc, String nom, String ape, String mail, Unidad tipId, Unidad tipTer) {
         Tercero t = new Tercero();
         t.setDocumento(doc);
@@ -258,26 +246,6 @@ public class DataInitializer implements CommandLineRunner {
         return u;
     }
 
-    private void vincularPrograma(Empresa e, Programa p) {
-        EmpresaPrograma ep = new EmpresaPrograma();
-        ep.setEmpresa(e);
-        ep.setPrograma(p);
-        ep.setEstado(true);
-        ep.setFechaActivacion(LocalDateTime.now());
-        empresaProgramaRepository.save(ep);
-    }
-
-    private void crearSuscripcion(Empresa emp, Programa prog, int cupos) {
-        SuscripcionPrograma sub = new SuscripcionPrograma();
-        sub.setEmpresa(emp);
-        sub.setPrograma(prog);
-        sub.setMaxDispositivos(cupos);
-        sub.setDispositivosActivos(0);
-        sub.setActivo(true);
-        suscripcionProgramaRepository.save(sub);
-    }
-
-    // Helper para garantizar la existencia de Tipos de Documento
     private TipoDocumento checkAndCreateTipoDocumento(String cod, String nombre, String naturaleza) {
         return tipoDocumentoRepository.findByCodigo(cod).orElseGet(() -> {
             TipoDocumento td = new TipoDocumento();
