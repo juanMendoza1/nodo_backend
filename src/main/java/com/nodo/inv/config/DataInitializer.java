@@ -25,8 +25,7 @@ import com.nodo.inv.core.repository.TipoDocumentoRepository;
 import com.nodo.inv.core.repository.UnidadRepository;
 import com.nodo.inv.core.repository.UsuarioRepository;
 import com.nodo.inv.core.repository.UsuarioRolRepository;
-import com.nodo.inv.entity.*;
-import com.nodo.inv.repository.*;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;

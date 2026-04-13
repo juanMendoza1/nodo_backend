@@ -1,8 +1,9 @@
 package com.nodo.inv.core.controller;
 
+import com.nodo.inv.core.dto.ProgramaDTO;
 import com.nodo.inv.core.entity.Programa;
-import com.nodo.inv.dto.ProgramaDTO;
-import com.nodo.inv.service.ProgramaService;
+import com.nodo.inv.core.service.ProgramaService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

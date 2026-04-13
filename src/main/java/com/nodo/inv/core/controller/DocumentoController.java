@@ -1,10 +1,11 @@
 package com.nodo.inv.core.controller;
 
+import com.nodo.inv.core.dto.DocumentoDTO;
+import com.nodo.inv.core.dto.DocumentoDTO.CrearDocumentoRequest;
 import com.nodo.inv.core.entity.Documento;
 import com.nodo.inv.core.repository.DocumentoRepository;
-import com.nodo.inv.dto.DocumentoDTO;
-import com.nodo.inv.dto.DocumentoDTO.CrearDocumentoRequest;
-import com.nodo.inv.service.DocumentoService;
+import com.nodo.inv.core.service.DocumentoService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

@@ -1,9 +1,10 @@
 package com.nodo.inv.controller;
 
-import com.nodo.inv.dto.LiquidacionDTO;
-import com.nodo.inv.entity.Liquidacion;
-import com.nodo.inv.repository.LiquidacionRepository;
-import com.nodo.inv.service.LiquidacionService;
+import com.nodo.inv.nomina.dto.LiquidacionDTO;
+import com.nodo.inv.nomina.entity.Liquidacion;
+import com.nodo.inv.nomina.repository.LiquidacionRepository;
+import com.nodo.inv.nomina.service.LiquidacionService;
+
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.dao.DataIntegrityViolationException;

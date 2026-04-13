@@ -4,8 +4,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import com.nodo.inv.dto.*;
-import com.nodo.inv.service.AuthService;
+import com.nodo.inv.core.dto.LoginRequestDTO;
+import com.nodo.inv.core.dto.LoginResponseDTO;
+import com.nodo.inv.core.service.AuthService;
 
 import lombok.RequiredArgsConstructor;
 

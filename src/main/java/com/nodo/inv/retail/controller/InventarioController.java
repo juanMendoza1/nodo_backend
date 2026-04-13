@@ -1,6 +1,6 @@
 package com.nodo.inv.retail.controller;
 
-import com.nodo.inv.dto.DashboardStatsDTO;
+import com.nodo.inv.core.dto.DashboardStatsDTO;
 import com.nodo.inv.retail.dto.MovimientoDTO;
 import com.nodo.inv.retail.entity.InventarioMovimiento;
 import com.nodo.inv.retail.service.InventarioService;

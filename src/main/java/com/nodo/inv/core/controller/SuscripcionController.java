@@ -1,8 +1,9 @@
 package com.nodo.inv.core.controller;
 
-import com.nodo.inv.dto.SuscripcionDTO;
-import com.nodo.inv.dto.SuscripcionGuardarDTO;
-import com.nodo.inv.service.SuscripcionService;
+import com.nodo.inv.core.dto.SuscripcionDTO;
+import com.nodo.inv.core.dto.SuscripcionGuardarDTO;
+import com.nodo.inv.core.service.SuscripcionService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

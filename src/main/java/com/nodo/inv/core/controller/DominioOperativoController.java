@@ -1,8 +1,9 @@
 package com.nodo.inv.core.controller;
 
+import com.nodo.inv.core.dto.DominioOperativoDTO;
 import com.nodo.inv.core.entity.DominioOperativo;
-import com.nodo.inv.dto.DominioOperativoDTO;
-import com.nodo.inv.service.DominioOperativoService;
+import com.nodo.inv.core.service.DominioOperativoService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

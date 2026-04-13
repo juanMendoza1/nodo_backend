@@ -1,8 +1,9 @@
 package com.nodo.inv.core.controller;
 
+import com.nodo.inv.core.dto.TerminalCupoDTO;
 import com.nodo.inv.core.entity.TerminalDispositivo;
-import com.nodo.inv.dto.TerminalCupoDTO;
-import com.nodo.inv.service.TerminalService;
+import com.nodo.inv.core.service.TerminalService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

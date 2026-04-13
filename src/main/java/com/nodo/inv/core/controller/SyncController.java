@@ -1,7 +1,8 @@
 package com.nodo.inv.core.controller;
 
-import com.nodo.inv.dto.SincronizacionPaqueteDTO;
-import com.nodo.inv.service.SyncService;
+import com.nodo.inv.core.dto.SincronizacionPaqueteDTO;
+import com.nodo.inv.core.service.SyncService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;

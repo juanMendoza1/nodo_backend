@@ -1,8 +1,9 @@
 package com.nodo.inv.core.controller;
 
+import com.nodo.inv.core.dto.ClaseDTO;
 import com.nodo.inv.core.entity.Clase;
-import com.nodo.inv.dto.ClaseDTO;
-import com.nodo.inv.service.ClaseService;
+import com.nodo.inv.core.service.ClaseService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

@@ -1,8 +1,9 @@
 package com.nodo.inv.core.controller;
 
+import com.nodo.inv.core.dto.GiroNegocioDTO;
 import com.nodo.inv.core.entity.GiroNegocio;
-import com.nodo.inv.dto.GiroNegocioDTO;
-import com.nodo.inv.service.GiroNegocioService;
+import com.nodo.inv.core.service.GiroNegocioService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

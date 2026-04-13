@@ -1,9 +1,10 @@
 // src/main/java/com/nodo/inv/controller/RolController.java
 package com.nodo.inv.core.controller;
 
+import com.nodo.inv.core.dto.RolDTO;
 import com.nodo.inv.core.entity.Rol;
-import com.nodo.inv.dto.RolDTO;
-import com.nodo.inv.service.RolService;
+import com.nodo.inv.core.service.RolService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

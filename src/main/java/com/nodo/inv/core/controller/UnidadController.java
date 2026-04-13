@@ -1,9 +1,10 @@
 // src/main/java/com/nodo/inv/controller/UnidadController.java
 package com.nodo.inv.core.controller;
 
+import com.nodo.inv.core.dto.UnidadDTO;
 import com.nodo.inv.core.entity.Unidad;
-import com.nodo.inv.dto.UnidadDTO;
-import com.nodo.inv.service.UnidadService;
+import com.nodo.inv.core.service.UnidadService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

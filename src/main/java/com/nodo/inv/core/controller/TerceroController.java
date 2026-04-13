@@ -1,10 +1,10 @@
 package com.nodo.inv.core.controller;
 
+import com.nodo.inv.core.dto.TerceroDTO;
 import com.nodo.inv.core.entity.Tercero;
 import com.nodo.inv.core.entity.Usuario;
 import com.nodo.inv.core.repository.UsuarioRepository;
-import com.nodo.inv.dto.TerceroDTO;
-import com.nodo.inv.service.TerceroService;
+import com.nodo.inv.core.service.TerceroService;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

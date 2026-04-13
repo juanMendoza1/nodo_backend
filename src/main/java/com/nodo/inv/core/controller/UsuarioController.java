@@ -8,16 +8,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import com.nodo.inv.core.dto.UsuarioDataDTO;
+import com.nodo.inv.core.dto.UsuarioRegistroDTO;
 import com.nodo.inv.core.entity.Usuario;
 import com.nodo.inv.core.entity.UsuarioOperativo;
-// Importamos el nuevo DTO para el CRUD del Panel Web
-import com.nodo.inv.dto.UsuarioDataDTO; 
-
-import com.nodo.inv.dto.UsuarioRegistroDTO; // Por si lo tienes en uso en AuthController
-import com.nodo.inv.dto.UsuarioSlotDTO;
-import com.nodo.inv.dto.UsuarioSlotGuardarDTO;
-import com.nodo.inv.service.UsuarioOperativoService;
-import com.nodo.inv.service.UsuarioService;
+import com.nodo.inv.core.service.UsuarioOperativoService;
+import com.nodo.inv.core.service.UsuarioService;
+import com.nodo.inv.nomina.dto.UsuarioSlotDTO;
+import com.nodo.inv.nomina.dto.UsuarioSlotGuardarDTO;
 
 import lombok.RequiredArgsConstructor;
 

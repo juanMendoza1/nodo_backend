@@ -2,7 +2,8 @@ package com.nodo.inv.core.controller;
 
 import com.nodo.inv.core.entity.Concepto;
 import com.nodo.inv.core.repository.ConceptoRepository;
-import com.nodo.inv.service.ConceptoService;
+import com.nodo.inv.core.service.ConceptoService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
