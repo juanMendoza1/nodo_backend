@@ -11,13 +11,13 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.nodo.inv.entity.Usuario;
-import com.nodo.inv.entity.SuscripcionPrograma;
-import com.nodo.inv.entity.ProgramaPermiso;
+import com.nodo.inv.core.entity.ProgramaPermiso;
+import com.nodo.inv.core.entity.SuscripcionPrograma;
+import com.nodo.inv.core.entity.Usuario;
+import com.nodo.inv.core.repository.ProgramaPermisoRepository;
+import com.nodo.inv.core.repository.SuscripcionProgramaRepository;
+import com.nodo.inv.core.repository.UsuarioRepository;
 import com.nodo.inv.dto.*;
-import com.nodo.inv.repository.UsuarioRepository;
-import com.nodo.inv.repository.ProgramaPermisoRepository;
-import com.nodo.inv.repository.SuscripcionProgramaRepository;
 import com.nodo.inv.jwt.JwtUtil;
 
 import lombok.RequiredArgsConstructor;

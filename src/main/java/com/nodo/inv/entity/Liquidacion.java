@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.Data;
 import java.util.List;
 
+import com.nodo.inv.core.entity.Programa;
+import com.nodo.inv.core.entity.TipoDocumento;
+
 @Data
 @Entity
 @Table(name = "liq_liquidacion")

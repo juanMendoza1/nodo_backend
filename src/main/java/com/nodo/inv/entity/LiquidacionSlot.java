@@ -4,6 +4,11 @@ import jakarta.persistence.*;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+
+import com.nodo.inv.core.entity.Empresa;
+import com.nodo.inv.core.entity.Usuario;
+import com.nodo.inv.core.entity.UsuarioOperativo;
+
 import java.time.LocalDate;
 
 @Data

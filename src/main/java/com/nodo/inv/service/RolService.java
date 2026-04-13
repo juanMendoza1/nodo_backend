@@ -1,9 +1,10 @@
 // src/main/java/com/nodo/inv/service/RolService.java
 package com.nodo.inv.service;
 
+import com.nodo.inv.core.entity.Rol;
+import com.nodo.inv.core.repository.RolRepository;
 import com.nodo.inv.dto.RolDTO;
-import com.nodo.inv.entity.Rol;
-import com.nodo.inv.repository.RolRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

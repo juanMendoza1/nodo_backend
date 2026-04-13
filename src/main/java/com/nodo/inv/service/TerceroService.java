@@ -1,15 +1,16 @@
 package com.nodo.inv.service;
 
+import com.nodo.inv.core.entity.Empresa;
+import com.nodo.inv.core.entity.EmpresaTercero;
+import com.nodo.inv.core.entity.Tercero;
+import com.nodo.inv.core.entity.Unidad;
+import com.nodo.inv.core.entity.Usuario;
+import com.nodo.inv.core.repository.EmpresaRepository;
+import com.nodo.inv.core.repository.EmpresaTerceroRepository;
+import com.nodo.inv.core.repository.TerceroRepository;
+import com.nodo.inv.core.repository.UnidadRepository;
 import com.nodo.inv.dto.TerceroDTO;
-import com.nodo.inv.entity.Empresa;
-import com.nodo.inv.entity.EmpresaTercero;
-import com.nodo.inv.entity.Tercero;
-import com.nodo.inv.entity.Unidad;
-import com.nodo.inv.entity.Usuario;
-import com.nodo.inv.repository.EmpresaRepository;
-import com.nodo.inv.repository.EmpresaTerceroRepository;
-import com.nodo.inv.repository.TerceroRepository;
-import com.nodo.inv.repository.UnidadRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

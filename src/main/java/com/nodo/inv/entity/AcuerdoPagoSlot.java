@@ -6,6 +6,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import com.nodo.inv.core.entity.UsuarioOperativo;
+
 @Data
 @Entity
 @Table(name = "liq_acuerdo_pago_slot")

@@ -4,12 +4,12 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.nodo.inv.core.entity.Empresa;
+import com.nodo.inv.core.entity.Tercero;
+import com.nodo.inv.core.repository.EmpresaRepository;
+import com.nodo.inv.core.repository.GiroNegocioRepository;
+import com.nodo.inv.core.repository.TerceroRepository;
 import com.nodo.inv.dto.EmpresaRegistroDTO;
-import com.nodo.inv.entity.Empresa;
-import com.nodo.inv.entity.Tercero;
-import com.nodo.inv.repository.EmpresaRepository;
-import com.nodo.inv.repository.GiroNegocioRepository;
-import com.nodo.inv.repository.TerceroRepository;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -61,14 +61,14 @@ public class EmpresaService {
 
         // Asignar el Tercero
         if (dto.getTercero() != null && dto.getTercero().getId() != null) {
-            com.nodo.inv.entity.Tercero tercero = terceroRepository.findById(dto.getTercero().getId())
+            com.nodo.inv.core.entity.Tercero tercero = terceroRepository.findById(dto.getTercero().getId())
                     .orElseThrow(() -> new RuntimeException("El Tercero seleccionado no existe"));
             empresa.setTercero(tercero);
         }
 
         // Asignar el Giro de Negocio
         if (dto.getGiroNegocio() != null && dto.getGiroNegocio().getId() != null) {
-            com.nodo.inv.entity.GiroNegocio giro = giroNegocioRepository.findById(dto.getGiroNegocio().getId())
+            com.nodo.inv.core.entity.GiroNegocio giro = giroNegocioRepository.findById(dto.getGiroNegocio().getId())
                     .orElseThrow(() -> new RuntimeException("El Giro de Negocio seleccionado no existe"));
             empresa.setGiroNegocio(giro);
         }

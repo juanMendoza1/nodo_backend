@@ -11,14 +11,14 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.nodo.inv.entity.Rol;
-import com.nodo.inv.entity.RolPermiso;
-import com.nodo.inv.entity.Usuario;
-import com.nodo.inv.entity.UsuarioRol;
-import com.nodo.inv.repository.RolPermisoRepository;
-import com.nodo.inv.repository.UsuarioRepository;
-import com.nodo.inv.repository.UsuarioRolRepository;
 import com.nodo.inv.Utils.EstadoUsuario;
+import com.nodo.inv.core.entity.Rol;
+import com.nodo.inv.core.entity.RolPermiso;
+import com.nodo.inv.core.entity.Usuario;
+import com.nodo.inv.core.entity.UsuarioRol;
+import com.nodo.inv.core.repository.RolPermisoRepository;
+import com.nodo.inv.core.repository.UsuarioRepository;
+import com.nodo.inv.core.repository.UsuarioRolRepository;
 
 import lombok.RequiredArgsConstructor;
 

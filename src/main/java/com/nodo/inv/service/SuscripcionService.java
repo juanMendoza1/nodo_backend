@@ -1,13 +1,14 @@
 package com.nodo.inv.service;
 
+import com.nodo.inv.core.entity.Empresa;
+import com.nodo.inv.core.entity.Programa;
+import com.nodo.inv.core.entity.SuscripcionPrograma;
+import com.nodo.inv.core.repository.EmpresaRepository;
+import com.nodo.inv.core.repository.ProgramaRepository;
+import com.nodo.inv.core.repository.SuscripcionProgramaRepository;
 import com.nodo.inv.dto.SuscripcionDTO;
 import com.nodo.inv.dto.SuscripcionGuardarDTO;
-import com.nodo.inv.entity.Empresa;
-import com.nodo.inv.entity.Programa;
-import com.nodo.inv.entity.SuscripcionPrograma;
-import com.nodo.inv.repository.EmpresaRepository;
-import com.nodo.inv.repository.ProgramaRepository;
-import com.nodo.inv.repository.SuscripcionProgramaRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

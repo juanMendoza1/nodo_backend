@@ -1,7 +1,7 @@
 package com.nodo.inv.service.engine;
 
+import com.nodo.inv.core.entity.Concepto;
 import com.nodo.inv.dto.DocumentoDTO.LineaDetalle;
-import com.nodo.inv.entity.Concepto;
 import com.nodo.inv.entity.ConceptoLiquidacion;
 import com.nodo.inv.service.engine.Funcion;
 

@@ -1,5 +1,13 @@
 package com.nodo.inv.service;
 
+import com.nodo.inv.core.entity.Concepto;
+import com.nodo.inv.core.entity.Empresa;
+import com.nodo.inv.core.entity.Programa;
+import com.nodo.inv.core.entity.TipoDocumento;
+import com.nodo.inv.core.repository.ConceptoRepository;
+import com.nodo.inv.core.repository.EmpresaRepository;
+import com.nodo.inv.core.repository.ProgramaRepository;
+import com.nodo.inv.core.repository.TipoDocumentoRepository;
 import com.nodo.inv.dto.LiquidacionDTO;
 import com.nodo.inv.entity.*;
 import com.nodo.inv.repository.*;

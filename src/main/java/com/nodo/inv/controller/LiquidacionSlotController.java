@@ -1,11 +1,11 @@
 package com.nodo.inv.controller;
 
+import com.nodo.inv.core.entity.Usuario;
+import com.nodo.inv.core.repository.UsuarioRepository;
 import com.nodo.inv.entity.AcuerdoPagoSlot;
 import com.nodo.inv.entity.LiquidacionSlot;
 import com.nodo.inv.entity.NovedadSlot;
-import com.nodo.inv.entity.Usuario;
-import com.nodo.inv.entity.Venta;
-import com.nodo.inv.repository.UsuarioRepository;
+import com.nodo.inv.retail.entity.Venta;
 import com.nodo.inv.service.LiquidacionSlotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;

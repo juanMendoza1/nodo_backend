@@ -1,14 +1,15 @@
 package com.nodo.inv.service;
 
+import com.nodo.inv.core.entity.DominioOperativo;
+import com.nodo.inv.core.entity.Permiso;
+import com.nodo.inv.core.entity.Programa;
+import com.nodo.inv.core.entity.ProgramaPermiso;
+import com.nodo.inv.core.repository.DominioOperativoRepository;
+import com.nodo.inv.core.repository.PermisoRepository;
+import com.nodo.inv.core.repository.ProgramaPermisoRepository;
+import com.nodo.inv.core.repository.ProgramaRepository;
 import com.nodo.inv.dto.ProgramaDTO;
-import com.nodo.inv.entity.DominioOperativo;
-import com.nodo.inv.entity.Permiso;
-import com.nodo.inv.entity.Programa;
-import com.nodo.inv.entity.ProgramaPermiso;
-import com.nodo.inv.repository.DominioOperativoRepository;
-import com.nodo.inv.repository.PermisoRepository;
-import com.nodo.inv.repository.ProgramaPermisoRepository;
-import com.nodo.inv.repository.ProgramaRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

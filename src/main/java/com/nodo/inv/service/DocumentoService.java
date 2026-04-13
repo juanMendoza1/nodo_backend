@@ -1,6 +1,21 @@
 package com.nodo.inv.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nodo.inv.core.entity.Concepto;
+import com.nodo.inv.core.entity.ConsecutivoDocumento;
+import com.nodo.inv.core.entity.Documento;
+import com.nodo.inv.core.entity.DocumentoDetalle;
+import com.nodo.inv.core.entity.Empresa;
+import com.nodo.inv.core.entity.Programa;
+import com.nodo.inv.core.entity.Tercero;
+import com.nodo.inv.core.entity.TipoDocumento;
+import com.nodo.inv.core.repository.ConceptoRepository;
+import com.nodo.inv.core.repository.ConsecutivoDocumentoRepository;
+import com.nodo.inv.core.repository.DocumentoRepository;
+import com.nodo.inv.core.repository.EmpresaRepository;
+import com.nodo.inv.core.repository.ProgramaRepository;
+import com.nodo.inv.core.repository.TerceroRepository;
+import com.nodo.inv.core.repository.TipoDocumentoRepository;
 import com.nodo.inv.dto.DocumentoDTO;
 import com.nodo.inv.dto.DocumentoDTO.CrearDocumentoRequest;
 import com.nodo.inv.dto.DocumentoDTO.LineaDetalle;

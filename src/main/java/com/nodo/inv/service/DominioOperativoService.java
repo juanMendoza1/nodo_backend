@@ -1,8 +1,9 @@
 package com.nodo.inv.service;
 
+import com.nodo.inv.core.entity.DominioOperativo;
+import com.nodo.inv.core.repository.DominioOperativoRepository;
 import com.nodo.inv.dto.DominioOperativoDTO;
-import com.nodo.inv.entity.DominioOperativo;
-import com.nodo.inv.repository.DominioOperativoRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

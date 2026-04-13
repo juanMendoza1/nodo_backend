@@ -1,10 +1,11 @@
 // src/main/java/com/nodo/inv/service/strategy/MesaCreadaStrategy.java
 package com.nodo.inv.service.strategy;
 
-import com.nodo.inv.entity.ActividadOperativa;
-import com.nodo.inv.entity.Mesa;
-import com.nodo.inv.repository.MesaRepository;
-import com.nodo.inv.repository.UsuarioOperativoRepository;
+import com.nodo.inv.core.repository.UsuarioOperativoRepository;
+import com.nodo.inv.retail.entity.ActividadOperativa;
+import com.nodo.inv.retail.entity.Mesa;
+import com.nodo.inv.retail.repository.MesaRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import java.util.Map;

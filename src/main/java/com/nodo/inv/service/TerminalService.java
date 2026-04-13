@@ -1,5 +1,15 @@
 package com.nodo.inv.service;
 
+import com.nodo.inv.core.entity.Empresa;
+import com.nodo.inv.core.entity.Programa;
+import com.nodo.inv.core.entity.SuscripcionPrograma;
+import com.nodo.inv.core.entity.TerminalDispositivo;
+import com.nodo.inv.core.entity.TerminalTokenRegistro;
+import com.nodo.inv.core.repository.EmpresaRepository;
+import com.nodo.inv.core.repository.ProgramaRepository;
+import com.nodo.inv.core.repository.SuscripcionProgramaRepository;
+import com.nodo.inv.core.repository.TerminalDispositivoRepository;
+import com.nodo.inv.core.repository.TerminalTokenRepository;
 import com.nodo.inv.dto.TerminalCupoDTO;
 import com.nodo.inv.entity.*;
 import com.nodo.inv.repository.*;

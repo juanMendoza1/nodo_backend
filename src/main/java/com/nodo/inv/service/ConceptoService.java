@@ -1,9 +1,9 @@
 package com.nodo.inv.service;
 
-import com.nodo.inv.entity.Concepto;
-import com.nodo.inv.entity.ConceptoRelacionado;
-import com.nodo.inv.repository.ConceptoRepository;
-import com.nodo.inv.repository.ConceptoRelacionadoRepository;
+import com.nodo.inv.core.entity.Concepto;
+import com.nodo.inv.core.entity.ConceptoRelacionado;
+import com.nodo.inv.core.repository.ConceptoRelacionadoRepository;
+import com.nodo.inv.core.repository.ConceptoRepository;
 import com.nodo.inv.service.engine.Funcion; // 🔥 IMPORTAMOS LA INTERFAZ
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

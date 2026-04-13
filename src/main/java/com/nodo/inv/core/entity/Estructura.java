@@ -1,0 +1,24 @@
+package com.nodo.inv.core.entity;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+@Data
+@Entity
+@Table(name = "estructura")
+public class Estructura {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "est_ideregistro")
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cla_ideregistro", nullable = false)
+    private Clase clase;
+
+    @Column(name = "est_nombre", nullable = false, length = 100)
+    private String nombre; // Ej: "TIPOS DE IDENTIFICACION"
+    
+    @Column(name = "est_codigo", nullable = false, unique = true, length = 50)
+    private String codigo;
+}

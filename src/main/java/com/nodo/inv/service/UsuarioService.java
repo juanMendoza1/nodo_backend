@@ -1,17 +1,18 @@
 package com.nodo.inv.service;
 
 import com.nodo.inv.Utils.EstadoUsuario;
+import com.nodo.inv.core.entity.Empresa;
+import com.nodo.inv.core.entity.Rol;
+import com.nodo.inv.core.entity.Tercero;
+import com.nodo.inv.core.entity.Usuario;
+import com.nodo.inv.core.entity.UsuarioRol;
+import com.nodo.inv.core.repository.EmpresaRepository;
+import com.nodo.inv.core.repository.RolRepository;
+import com.nodo.inv.core.repository.TerceroRepository;
+import com.nodo.inv.core.repository.UsuarioRepository;
+import com.nodo.inv.core.repository.UsuarioRolRepository;
 import com.nodo.inv.dto.UsuarioDataDTO;
-import com.nodo.inv.entity.Empresa;
-import com.nodo.inv.entity.Rol;
-import com.nodo.inv.entity.Tercero;
-import com.nodo.inv.entity.Usuario;
-import com.nodo.inv.entity.UsuarioRol;
-import com.nodo.inv.repository.EmpresaRepository;
-import com.nodo.inv.repository.RolRepository;
-import com.nodo.inv.repository.TerceroRepository;
-import com.nodo.inv.repository.UsuarioRepository;
-import com.nodo.inv.repository.UsuarioRolRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

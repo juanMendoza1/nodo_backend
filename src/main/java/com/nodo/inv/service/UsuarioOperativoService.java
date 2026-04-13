@@ -1,13 +1,13 @@
 package com.nodo.inv.service;
 
 import com.nodo.inv.Utils.EstadoUsuario;
+import com.nodo.inv.core.entity.Empresa;
+import com.nodo.inv.core.entity.Rol;
+import com.nodo.inv.core.entity.UsuarioOperativo;
+import com.nodo.inv.core.repository.EmpresaRepository;
+import com.nodo.inv.core.repository.RolRepository;
+import com.nodo.inv.core.repository.UsuarioOperativoRepository;
 import com.nodo.inv.dto.UsuarioSlotGuardarDTO;
-import com.nodo.inv.entity.Empresa;
-import com.nodo.inv.entity.Rol;
-import com.nodo.inv.entity.UsuarioOperativo;
-import com.nodo.inv.repository.EmpresaRepository;
-import com.nodo.inv.repository.RolRepository;
-import com.nodo.inv.repository.UsuarioOperativoRepository;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;

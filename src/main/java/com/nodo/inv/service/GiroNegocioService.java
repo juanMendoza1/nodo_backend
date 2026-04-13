@@ -1,8 +1,9 @@
 package com.nodo.inv.service;
 
+import com.nodo.inv.core.entity.GiroNegocio;
+import com.nodo.inv.core.repository.GiroNegocioRepository;
 import com.nodo.inv.dto.GiroNegocioDTO;
-import com.nodo.inv.entity.GiroNegocio;
-import com.nodo.inv.repository.GiroNegocioRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

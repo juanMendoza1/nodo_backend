@@ -1,7 +1,8 @@
 package com.nodo.inv.jwt;
 
-import com.nodo.inv.entity.TerminalDispositivo;
-import com.nodo.inv.repository.TerminalDispositivoRepository;
+import com.nodo.inv.core.entity.TerminalDispositivo;
+import com.nodo.inv.core.repository.TerminalDispositivoRepository;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

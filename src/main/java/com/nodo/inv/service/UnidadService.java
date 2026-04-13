@@ -1,12 +1,13 @@
 package com.nodo.inv.service;
 
+import com.nodo.inv.core.entity.Empresa;
+import com.nodo.inv.core.entity.Estructura;
+import com.nodo.inv.core.entity.Unidad;
+import com.nodo.inv.core.repository.EmpresaRepository;
+import com.nodo.inv.core.repository.EstructuraRepository;
+import com.nodo.inv.core.repository.UnidadRepository;
 import com.nodo.inv.dto.UnidadDTO;
-import com.nodo.inv.entity.Empresa;
-import com.nodo.inv.entity.Estructura;
-import com.nodo.inv.entity.Unidad;
-import com.nodo.inv.repository.EmpresaRepository;
-import com.nodo.inv.repository.EstructuraRepository;
-import com.nodo.inv.repository.UnidadRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;

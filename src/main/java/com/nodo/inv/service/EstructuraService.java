@@ -1,10 +1,11 @@
 package com.nodo.inv.service;
 
+import com.nodo.inv.core.entity.Clase;
+import com.nodo.inv.core.entity.Estructura;
+import com.nodo.inv.core.repository.ClaseRepository;
+import com.nodo.inv.core.repository.EstructuraRepository;
 import com.nodo.inv.dto.EstructuraDTO;
-import com.nodo.inv.entity.Clase;
-import com.nodo.inv.entity.Estructura;
-import com.nodo.inv.repository.ClaseRepository;
-import com.nodo.inv.repository.EstructuraRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

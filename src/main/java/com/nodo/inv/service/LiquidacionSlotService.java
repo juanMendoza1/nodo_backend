@@ -1,7 +1,13 @@
 package com.nodo.inv.service;
 
+import com.nodo.inv.core.entity.Usuario;
+import com.nodo.inv.core.entity.UsuarioOperativo;
+import com.nodo.inv.core.repository.UsuarioOperativoRepository;
 import com.nodo.inv.entity.*;
 import com.nodo.inv.repository.*;
+import com.nodo.inv.retail.entity.Venta;
+import com.nodo.inv.retail.repository.VentaRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
