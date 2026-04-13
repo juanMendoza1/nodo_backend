@@ -1,8 +1,11 @@
-package com.nodo.inv.service.processor;
+package com.nodo.inv.retail.service.processor;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.nodo.inv.core.processor.OperacionDomainProcessor;
+
 import java.util.Map;
 
 // 🔥 LA MAGIA: El nombre del Bean coincide con el 'serviceProcessorBean' de la tabla de Dominios

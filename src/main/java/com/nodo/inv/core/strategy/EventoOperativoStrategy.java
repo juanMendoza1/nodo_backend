@@ -1,4 +1,4 @@
-package com.nodo.inv.service.strategy;
+package com.nodo.inv.core.strategy;
 
 import java.util.Map;
 

@@ -1,7 +1,8 @@
-package com.nodo.inv.service.engine.funciones;
+package com.nodo.inv.core.engine.funciones;
 
-import com.nodo.inv.service.engine.Funcion;
 import org.springframework.stereotype.Component;
+
+import com.nodo.inv.core.engine.Funcion;
 
 import java.math.BigDecimal;
 import java.util.List;

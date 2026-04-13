@@ -2,7 +2,8 @@ package com.nodo.inv.core.service;
 
 import com.nodo.inv.core.entity.DominioOperativo;
 import com.nodo.inv.core.entity.Programa;
-import com.nodo.inv.service.processor.OperacionDomainProcessor;
+import com.nodo.inv.core.processor.OperacionDomainProcessor;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;

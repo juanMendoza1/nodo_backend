@@ -1,9 +1,8 @@
-package com.nodo.inv.service.engine;
+package com.nodo.inv.core.engine;
 
 import com.nodo.inv.core.dto.DocumentoDTO.LineaDetalle;
 import com.nodo.inv.core.entity.Concepto;
 import com.nodo.inv.nomina.entity.ConceptoLiquidacion;
-import com.nodo.inv.service.engine.Funcion;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

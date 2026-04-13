@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nodo.inv.core.dto.DocumentoDTO;
 import com.nodo.inv.core.dto.DocumentoDTO.CrearDocumentoRequest;
 import com.nodo.inv.core.dto.DocumentoDTO.LineaDetalle;
+import com.nodo.inv.core.engine.LiquidacionEngine;
 import com.nodo.inv.core.entity.Concepto;
 import com.nodo.inv.core.entity.ConsecutivoDocumento;
 import com.nodo.inv.core.entity.Documento;
@@ -23,7 +24,6 @@ import com.nodo.inv.core.repository.TipoDocumentoRepository;
 import com.nodo.inv.nomina.entity.ConceptoLiquidacion;
 import com.nodo.inv.nomina.repository.ConceptoLiquidacionRepository;
 
-import com.nodo.inv.service.engine.LiquidacionEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

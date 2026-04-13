@@ -1,10 +1,11 @@
 package com.nodo.inv.core.service;
 
+import com.nodo.inv.core.engine.Funcion;
 import com.nodo.inv.core.entity.Concepto;
 import com.nodo.inv.core.entity.ConceptoRelacionado;
 import com.nodo.inv.core.repository.ConceptoRelacionadoRepository;
 import com.nodo.inv.core.repository.ConceptoRepository;
-import com.nodo.inv.service.engine.Funcion; // 🔥 IMPORTAMOS LA INTERFAZ
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

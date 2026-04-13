@@ -1,4 +1,4 @@
-package com.nodo.inv.service.processor;
+package com.nodo.inv.core.processor;
 
 import java.util.Map;
 

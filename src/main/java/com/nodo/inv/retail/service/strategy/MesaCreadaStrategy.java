@@ -1,7 +1,8 @@
 // src/main/java/com/nodo/inv/service/strategy/MesaCreadaStrategy.java
-package com.nodo.inv.service.strategy;
+package com.nodo.inv.retail.service.strategy;
 
 import com.nodo.inv.core.repository.UsuarioOperativoRepository;
+import com.nodo.inv.core.strategy.EventoOperativoStrategy;
 import com.nodo.inv.retail.entity.ActividadOperativa;
 import com.nodo.inv.retail.entity.Mesa;
 import com.nodo.inv.retail.repository.MesaRepository;

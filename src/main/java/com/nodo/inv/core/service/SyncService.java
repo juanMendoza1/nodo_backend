@@ -11,7 +11,7 @@ import com.nodo.inv.core.entity.UsuarioOperativo;
 import com.nodo.inv.core.repository.EmpresaRepository;
 import com.nodo.inv.core.repository.TerminalDispositivoRepository;
 import com.nodo.inv.core.repository.UsuarioOperativoRepository;
-
+import com.nodo.inv.core.strategy.EventoOperativoStrategy;
 import com.nodo.inv.retail.entity.ActividadOperativa;
 import com.nodo.inv.retail.entity.Duelo;
 import com.nodo.inv.retail.entity.Mesa;
@@ -21,7 +21,7 @@ import com.nodo.inv.retail.repository.ActividadOperativaRepository;
 import com.nodo.inv.retail.repository.DueloRepository;
 import com.nodo.inv.retail.repository.MesaRepository;
 import com.nodo.inv.retail.repository.PedidoRepository;
-import com.nodo.inv.service.strategy.EventoOperativoStrategy;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;

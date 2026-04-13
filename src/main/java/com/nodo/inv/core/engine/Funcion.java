@@ -1,4 +1,4 @@
-package com.nodo.inv.service.engine;
+package com.nodo.inv.core.engine;
 
 import java.math.BigDecimal;
 import java.util.List;
