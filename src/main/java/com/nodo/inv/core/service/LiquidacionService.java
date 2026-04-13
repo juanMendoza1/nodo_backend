@@ -1,19 +1,18 @@
-package com.nodo.inv.nomina.service;
+package com.nodo.inv.core.service;
 
+import com.nodo.inv.core.dto.LiquidacionDTO;
 import com.nodo.inv.core.entity.Concepto;
+import com.nodo.inv.core.entity.ConceptoLiquidacion;
 import com.nodo.inv.core.entity.Empresa;
+import com.nodo.inv.core.entity.Liquidacion;
 import com.nodo.inv.core.entity.Programa;
 import com.nodo.inv.core.entity.TipoDocumento;
+import com.nodo.inv.core.repository.ConceptoLiquidacionRepository;
 import com.nodo.inv.core.repository.ConceptoRepository;
 import com.nodo.inv.core.repository.EmpresaRepository;
+import com.nodo.inv.core.repository.LiquidacionRepository;
 import com.nodo.inv.core.repository.ProgramaRepository;
 import com.nodo.inv.core.repository.TipoDocumentoRepository;
-
-import com.nodo.inv.nomina.dto.LiquidacionDTO;
-import com.nodo.inv.nomina.entity.ConceptoLiquidacion;
-import com.nodo.inv.nomina.entity.Liquidacion;
-import com.nodo.inv.nomina.repository.ConceptoLiquidacionRepository;
-import com.nodo.inv.nomina.repository.LiquidacionRepository;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

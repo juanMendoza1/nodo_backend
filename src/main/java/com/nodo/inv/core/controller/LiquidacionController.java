@@ -1,9 +1,9 @@
-package com.nodo.inv.controller;
+package com.nodo.inv.core.controller;
 
-import com.nodo.inv.nomina.dto.LiquidacionDTO;
-import com.nodo.inv.nomina.entity.Liquidacion;
-import com.nodo.inv.nomina.repository.LiquidacionRepository;
-import com.nodo.inv.nomina.service.LiquidacionService;
+import com.nodo.inv.core.dto.LiquidacionDTO;
+import com.nodo.inv.core.entity.Liquidacion;
+import com.nodo.inv.core.repository.LiquidacionRepository;
+import com.nodo.inv.core.service.LiquidacionService;
 
 import lombok.RequiredArgsConstructor;
 

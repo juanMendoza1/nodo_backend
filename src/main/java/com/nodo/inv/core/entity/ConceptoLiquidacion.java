@@ -1,8 +1,4 @@
-package com.nodo.inv.nomina.entity;
-
-import com.nodo.inv.core.entity.Concepto;
-import com.nodo.inv.core.entity.Empresa;
-import com.nodo.inv.core.entity.Programa;
+package com.nodo.inv.core.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;

@@ -1,4 +1,4 @@
-package com.nodo.inv.nomina.dto;
+package com.nodo.inv.core.dto;
 
 public record ConceptoLiquidacionDTO(
 	    Long conceptoId,

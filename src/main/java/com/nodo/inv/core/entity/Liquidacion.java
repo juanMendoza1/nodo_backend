@@ -1,11 +1,8 @@
-package com.nodo.inv.nomina.entity;
+package com.nodo.inv.core.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
 import java.util.List;
-
-import com.nodo.inv.core.entity.Programa;
-import com.nodo.inv.core.entity.TipoDocumento;
 
 @Data
 @Entity

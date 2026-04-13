@@ -6,6 +6,7 @@ import com.nodo.inv.core.dto.DocumentoDTO.CrearDocumentoRequest;
 import com.nodo.inv.core.dto.DocumentoDTO.LineaDetalle;
 import com.nodo.inv.core.engine.LiquidacionEngine;
 import com.nodo.inv.core.entity.Concepto;
+import com.nodo.inv.core.entity.ConceptoLiquidacion;
 import com.nodo.inv.core.entity.ConsecutivoDocumento;
 import com.nodo.inv.core.entity.Documento;
 import com.nodo.inv.core.entity.DocumentoDetalle;
@@ -13,6 +14,7 @@ import com.nodo.inv.core.entity.Empresa;
 import com.nodo.inv.core.entity.Programa;
 import com.nodo.inv.core.entity.Tercero;
 import com.nodo.inv.core.entity.TipoDocumento;
+import com.nodo.inv.core.repository.ConceptoLiquidacionRepository;
 import com.nodo.inv.core.repository.ConceptoRepository;
 import com.nodo.inv.core.repository.ConsecutivoDocumentoRepository;
 import com.nodo.inv.core.repository.DocumentoRepository;
@@ -20,9 +22,6 @@ import com.nodo.inv.core.repository.EmpresaRepository;
 import com.nodo.inv.core.repository.ProgramaRepository;
 import com.nodo.inv.core.repository.TerceroRepository;
 import com.nodo.inv.core.repository.TipoDocumentoRepository;
-
-import com.nodo.inv.nomina.entity.ConceptoLiquidacion;
-import com.nodo.inv.nomina.repository.ConceptoLiquidacionRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

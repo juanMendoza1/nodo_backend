@@ -1,4 +1,4 @@
-package com.nodo.inv.controller;
+package com.nodo.inv.nomina.controller;
 
 import com.nodo.inv.core.entity.Usuario;
 import com.nodo.inv.core.repository.UsuarioRepository;

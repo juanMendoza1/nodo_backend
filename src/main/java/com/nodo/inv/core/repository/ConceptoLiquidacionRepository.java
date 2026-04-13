@@ -1,11 +1,11 @@
-package com.nodo.inv.nomina.repository;
+package com.nodo.inv.core.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import com.nodo.inv.nomina.entity.ConceptoLiquidacion;
+import com.nodo.inv.core.entity.ConceptoLiquidacion;
 
 import java.util.List;
 
