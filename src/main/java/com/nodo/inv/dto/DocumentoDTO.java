@@ -41,4 +41,18 @@ public record DocumentoDTO(
         BigDecimal valorTotal,
         BigDecimal saldo
     ) {}
+    
+ // 3. EL DTO PARA EMITIR NOTAS (NC/ND)
+    public record EmitirNotaRequest(
+        Long empresaId,
+        Long documentoPadreId,
+        String tipoNota, // 'NC' o 'ND'
+        String observaciones,
+        List<DetalleNotaRequest> detalles
+    ) {}
+
+    public record DetalleNotaRequest(
+        Long documentoDetallePadreId,
+        BigDecimal valorAjuste
+    ) {}
 }

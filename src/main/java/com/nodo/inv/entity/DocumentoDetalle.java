@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import java.math.BigDecimal;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Data
 @Entity
 @Table(name = "con_documento_detalle")
@@ -16,6 +18,7 @@ public class DocumentoDetalle {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "doc_ideregistro", nullable = false)
+    @JsonIgnore
     private Documento documento;
 
     @ManyToOne(fetch = FetchType.LAZY)

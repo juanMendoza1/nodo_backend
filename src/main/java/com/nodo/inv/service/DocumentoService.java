@@ -1,6 +1,7 @@
 package com.nodo.inv.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nodo.inv.dto.DocumentoDTO;
 import com.nodo.inv.dto.DocumentoDTO.CrearDocumentoRequest;
 import com.nodo.inv.dto.DocumentoDTO.LineaDetalle;
 import com.nodo.inv.entity.*;
@@ -236,5 +237,95 @@ public class DocumentoService {
         consecutivo.setActual(consecutivo.getActual() + 1);
         consecutivoRepository.save(consecutivo);
         return consecutivo.getPrefijo() + "-" + String.format("%06d", consecutivo.getActual());
+    }
+    
+    @Transactional(readOnly = true)
+    public Documento buscarPadrePorConsecutivo(Long empresaId, String consecutivo) {
+        return documentoRepository.findByEmpresaIdAndConsecutivo(empresaId, consecutivo)
+                .orElseThrow(() -> new RuntimeException("Documento no encontrado o no pertenece a esta empresa."));
+    }
+
+    @Transactional
+    public Documento emitirNota(DocumentoDTO.EmitirNotaRequest request) {
+        Empresa empresa = empresaRepository.findById(request.empresaId())
+                .orElseThrow(() -> new RuntimeException("Empresa no encontrada"));
+        
+        Documento padre = documentoRepository.findById(request.documentoPadreId())
+                .orElseThrow(() -> new RuntimeException("Factura padre no encontrada"));
+
+        TipoDocumento tipoDoc = tipoDocumentoRepository.findByCodigo(request.tipoNota())
+                .orElseThrow(() -> new RuntimeException("Tipo de documento no válido: " + request.tipoNota()));
+
+        // 1. Crear la Cabecera de la Nota
+        Documento nota = new Documento();
+        nota.setEmpresa(empresa);
+        nota.setPrograma(padre.getPrograma());
+        nota.setTercero(padre.getTercero());
+        nota.setTipoDocumento(tipoDoc);
+        nota.setDocumentoPadre(padre);
+        nota.setFechaEmision(LocalDateTime.now());
+        
+        // 🔥 CLAVE 1: Estado APLICADO. Así evitamos que la Nota aparezca como una deuda pendiente en la Cartera
+        nota.setEstado("APLICADO"); 
+        nota.setObservaciones(request.observaciones());
+        
+        // Bloqueamos el consecutivo para la nota
+        nota.setConsecutivo(generarConsecutivoSeguro(empresa, tipoDoc));
+
+        BigDecimal granTotalNota = BigDecimal.ZERO;
+
+        // 2. Procesar cada detalle ajustado
+        for (DocumentoDTO.DetalleNotaRequest detRequest : request.detalles()) {
+            
+            DocumentoDetalle detallePadre = padre.getDetalles().stream()
+                    .filter(d -> d.getId().equals(detRequest.documentoDetallePadreId()))
+                    .findFirst()
+                    .orElseThrow(() -> new RuntimeException("Detalle original no encontrado en la factura"));
+
+            BigDecimal valorAjuste = detRequest.valorAjuste();
+
+            if (valorAjuste.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new RuntimeException("El valor de ajuste debe ser mayor a cero");
+            }
+
+            // Lógica financiera de Afectación al PADRE
+            if ("NC".equals(request.tipoNota())) {
+                if (valorAjuste.compareTo(detallePadre.getSaldo()) > 0) {
+                    throw new RuntimeException("El descuento en NC no puede superar el saldo actual del concepto: " + detallePadre.getConcepto().getNombre());
+                }
+                // Si es NC (Crédito), restamos al saldo del PADRE
+                detallePadre.setSaldo(detallePadre.getSaldo().subtract(valorAjuste));
+                padre.setSaldoDocumento(padre.getSaldoDocumento().subtract(valorAjuste));
+            } else if ("ND".equals(request.tipoNota())) {
+                // Si es ND (Débito), sumamos al saldo del PADRE
+                detallePadre.setSaldo(detallePadre.getSaldo().add(valorAjuste));
+                padre.setSaldoDocumento(padre.getSaldoDocumento().add(valorAjuste));
+            }
+
+            // 3. Crear el Detalle Histórico para la NOTA
+            DocumentoDetalle detalleNota = new DocumentoDetalle();
+            detalleNota.setConcepto(detallePadre.getConcepto());
+            detalleNota.setCantidad(BigDecimal.ONE);
+            detalleNota.setValorUnitario(valorAjuste);
+            detalleNota.setValorTotal(valorAjuste);
+            detalleNota.setValorReal(valorAjuste);
+            
+            // 🔥 CLAVE 2: La línea de la nota conserva su saldo igual al ajuste para justificar de qué fue
+            detalleNota.setSaldo(valorAjuste); 
+            
+            detalleNota.setNaturaleza("NC".equals(request.tipoNota()) ? "RESTA" : "SUMA");
+
+            nota.addDetalle(detalleNota);
+            granTotalNota = granTotalNota.add(valorAjuste);
+        }
+
+        nota.setTotalDocumento(granTotalNota);
+        
+        // 🔥 CLAVE 3: La cabecera de la nota conserva su saldo total para que el Libro de Documentos sea transparente
+        nota.setSaldoDocumento(granTotalNota); 
+
+        // 4. Guardar cambios en Cascada
+        documentoRepository.save(padre); // Actualiza la FV con sus nuevos saldos
+        return documentoRepository.save(nota); // Sella la nueva NC/ND
     }
 }
