@@ -90,7 +90,7 @@ public class DataInitializer implements CommandLineRunner {
         checkAndCreateDominio("HOSPITALIDAD", "Hotelería y Reservas", "htl_", "hospitalitySyncProcessor");
         checkAndCreateDominio("AGRO", "Agropecuario / Fincas", "agro_", "agroSyncProcessor");
 
-        // ==========================================
+     // ==========================================
         // 3. GIROS DE NEGOCIO, ROLES Y MÓDULOS (SaaS)
         // ==========================================
         GiroNegocio giroBillar = checkAndCreateGiro("RESTAURANTE / BILLAR", "REST_BILL", "ARENA_DUELO");
@@ -101,11 +101,24 @@ public class DataInitializer implements CommandLineRunner {
         Rol opRol = checkAndCreateRol("OPERATIVO", "Cajero / Mesero / Operador de TPV");
         
         // Permisos (Fichas de Lego / Módulos SaaS)
-        checkAndCreatePermiso("MOD_INVENTARIO", "Módulo de Gestión de Inventarios y Catálogo");
-        checkAndCreatePermiso("MOD_CAJA", "Módulo de Punto de Venta y Facturación");
-        checkAndCreatePermiso("MOD_TABLETS", "Módulo de Gestión de Dispositivos (Tablets y QR)");
-        checkAndCreatePermiso("MOD_PERSONAL", "Módulo de Gestión de Empleados y Slots");
-        checkAndCreatePermiso("MOD_LIQUID_SLOT", "Módulo Avanzado de Liquidación de Nómina y Comisiones");
+        Permiso modInventario = checkAndCreatePermiso("MOD_INVENTARIO", "Módulo de Gestión de Inventarios y Catálogo");
+        Permiso modCaja = checkAndCreatePermiso("MOD_CAJA", "Módulo de Punto de Venta y Facturación");
+        Permiso modPersonal = checkAndCreatePermiso("MOD_PERSONAL", "Módulo de Gestión de Empleados y Slots");
+        Permiso modTablets = checkAndCreatePermiso("MOD_TABLETS", "Módulo de Gestión de Dispositivos (Tablets y QR)");
+        Permiso modLiquidSlot = checkAndCreatePermiso("MOD_LIQUID_SLOT", "Módulo Avanzado de Liquidación de Nómina y Comisiones");
+
+        // 🔥 REGISTRAR EL ÁRBOL DE DEPENDENCIAS SAAS
+        // Si el módulo de Tablets no tiene dependencias, le decimos que obligatoriamente requiere PERSONAL
+        if (modTablets.getDependencias().isEmpty()) {
+            modTablets.getDependencias().add(modPersonal); 
+            permisoRepository.save(modTablets);
+        }
+        
+        // Si el módulo de Liquidación de Slots no tiene dependencias, le decimos que obligatoriamente requiere PERSONAL
+        if (modLiquidSlot.getDependencias().isEmpty()) {
+            modLiquidSlot.getDependencias().add(modPersonal); 
+            permisoRepository.save(modLiquidSlot);
+        }
 
         // 🔥 LA CREACIÓN DE PROGRAMAS Y SUSCRIPCIONES HA SIDO ELIMINADA DE AQUÍ
         // (Ahora se hace dinámicamente desde el SuperAdminDashboard)
