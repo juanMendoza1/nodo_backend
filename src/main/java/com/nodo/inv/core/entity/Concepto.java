@@ -55,6 +55,9 @@ public class Concepto {
 
     @Column(name = "conc_aplica_iva", nullable = false)
     private Boolean aplicaIva = false;
+    
+    @Column(name = "conc_naturaleza", length = 10)
+    private String naturaleza = "SUMA"; // "SUMA" o "RESTA"
 
     // --- AGRUPACIONES PARAMÉTRICAS ---
     @ManyToOne(fetch = FetchType.LAZY)

@@ -39,7 +39,8 @@ public record DocumentoDTO(
         String conceptoNombre,
         BigDecimal cantidad,
         BigDecimal valorTotal,
-        BigDecimal saldo
+        BigDecimal saldo,
+        String naturaleza
     ) {}
     
  // 3. EL DTO PARA EMITIR NOTAS (NC/ND)

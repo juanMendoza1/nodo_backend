@@ -21,10 +21,7 @@ import java.util.regex.Pattern;
 @Component
 public class LiquidacionEngine {
 
-    // Registro dinámico de todas las funciones (F_SUMA, F_GET_IVA, etc.)
     private final Map<String, Funcion> registroFunciones = new HashMap<>();
-
-    // Evaluador matemático nativo de Spring Boot
     private final ExpressionParser mathParser = new SpelExpressionParser();
     private final StandardEvaluationContext mathContext = new StandardEvaluationContext();
 
@@ -37,59 +34,45 @@ public class LiquidacionEngine {
     }
 
     /**
-     * MÉTODO MAESTRO: Calcula toda la liquidación en memoria.
-     * @param receta La lista de Conceptos configurada (ordenada por dependencias).
-     * @param valoresOperativos Datos crudos (Ej: {"CERV" -> 50000, "HORA_BILLAR" -> 15000}).
-     * @return Lista de detalles calculados listos para guardar en DocumentoDetalle.
+     * MÉTODO MAESTRO: Calcula toda la liquidación bajo demanda (Inteligente).
      */
     public List<LineaDetalle> ejecutarLiquidacion(List<ConceptoLiquidacion> receta, Map<String, BigDecimal> valoresOperativos) {
         
         List<LineaDetalle> detallesCalculados = new ArrayList<>();
-        Map<String, BigDecimal> contextoMemoria = new HashMap<>(); // Memoria temporal del motor
-
+        
+        // 1. Armamos un Diccionario rápido para encontrar cualquier concepto al instante
+        Map<String, Concepto> diccionarioConceptos = new LinkedHashMap<>();
         for (ConceptoLiquidacion paso : receta) {
-            Concepto concepto = paso.getConcepto();
-            BigDecimal resultado = BigDecimal.ZERO;
+            diccionarioConceptos.put(paso.getConcepto().getCodigo(), paso.getConcepto());
+        }
 
-            // 1. Si el concepto es una Función Auxiliar pura en base de datos, no genera cobro, lo saltamos.
-            if (Boolean.TRUE.equals(concepto.getEsFuncion())) {
-                continue; 
-            }
+        // 2. Memoria compartida y Control de Ciclos Infinitos
+        Map<String, BigDecimal> memoria = new HashMap<>();
+        Set<String> enProceso = new HashSet<>();
 
-            // 2. CALCULAR SEGÚN EL TIPO
-            switch (concepto.getTipoCalculo().toUpperCase()) {
-                case "ESTATICO":
-                    resultado = concepto.getValorFijo() != null ? concepto.getValorFijo() : BigDecimal.ZERO;
-                    break;
-                
-                case "DINAMICO":
-                    resultado = valoresOperativos.getOrDefault(concepto.getCodigo(), BigDecimal.ZERO);
-                    break;
-                
-                case "FORMULA":
-                    if (concepto.getFormula() != null && !concepto.getFormula().isBlank()) {
-                        resultado = resolverFormula(concepto.getFormula(), contextoMemoria);
-                    }
-                    break;
-                
-                default:
-                    log.warn("Tipo de cálculo desconocido '{}' en concepto '{}'", concepto.getTipoCalculo(), concepto.getCodigo());
-            }
+        // 3. Evaluamos cada concepto de la receta
+        for (Concepto concepto : diccionarioConceptos.values()) {
+            
+            // 🔥 LA MAGIA: Resolvemos el concepto (El motor buscará sus dependencias automáticamente si las necesita)
+            BigDecimal resultado = resolverConcepto(concepto.getCodigo(), diccionarioConceptos, valoresOperativos, memoria, enProceso);
 
-            // 3. GUARDAR RESULTADO EN MEMORIA (Para que los conceptos que dependen de este lo encuentren)
-            contextoMemoria.put(concepto.getCodigo(), resultado);
-
-            // 4. ARMAR LÍNEA DEL DOCUMENTO (Ignoramos valores en 0 o negativos para no ensuciar la factura)
+            // 4. ARMAR LÍNEA DEL DOCUMENTO (Solo si el resultado es mayor a cero)
             if (resultado.compareTo(BigDecimal.ZERO) > 0) {
-                // Si es recaudable, el saldo y valor real es el total. Si no, es 0.
-                BigDecimal valorReal = concepto.getEsRecaudable() ? resultado : BigDecimal.ZERO;
+                
+                // 🔥 REGLA DE ORO CONTABLE: Solo los "Recaudables" afectan el saldo y el valor real de la factura
+                boolean esRecaudable = Boolean.TRUE.equals(concepto.getEsRecaudable());
+                BigDecimal valorReal = esRecaudable ? resultado : BigDecimal.ZERO;
+                
+                // Extraemos la naturaleza paramétrica (Por defecto SUMA para evitar nulos)
+                String naturaleza = concepto.getNaturaleza() != null ? concepto.getNaturaleza() : "SUMA";
                 
                 detallesCalculados.add(new LineaDetalle(
-                		concepto.getCodigo(),
+                        concepto.getCodigo(),
                         concepto.getNombre(),
-                        BigDecimal.ONE, // Por defecto consolidado
-                        resultado,      // valor_total
-                        valorReal       // saldo
+                        BigDecimal.ONE, // Cantidad por defecto
+                        resultado,      // Valor Total (Siempre se muestra la huella del cálculo)
+                        valorReal,      // Saldo / Valor Real (Si no es recaudable, esto va en 0)
+                        naturaleza
                 ));
             }
         }
@@ -98,44 +81,102 @@ public class LiquidacionEngine {
     }
 
     /**
-     * PROCESADOR DE FÓRMULAS: Transforma texto en dinero real.
+     * MOTOR RECURSIVO: Si no sabe el valor de algo, lo calcula y lo guarda en memoria.
      */
-    private BigDecimal resolverFormula(String formulaOriginal, Map<String, BigDecimal> contextoMemoria) {
-        String formulaProcesada = formulaOriginal;
+    private BigDecimal resolverConcepto(String codigo, Map<String, Concepto> diccionario, Map<String, BigDecimal> operativos, Map<String, BigDecimal> memoria, Set<String> enProceso) {
+        
+        // ¿Ya lo calculamos antes? Lo sacamos de la memoria al instante
+        if (memoria.containsKey(codigo)) {
+            return memoria.get(codigo);
+        }
 
-        // PASO A: RESOLVER FUNCIONES (Ej: F_SUMA(CERV, 5000) o F_GET_IVA() )
-        // Busca funciones que empiecen con F_ seguidas de paréntesis con 0 o más parámetros
-        Pattern patternFuncion = Pattern.compile("(F_[A-Z_]+)\\(([^)]*)\\)");
-        Matcher matcherFuncion = patternFuncion.matcher(formulaProcesada);
+        // ¿Estamos atrapados en un bucle? (A necesita B, y B necesita A)
+        if (enProceso.contains(codigo)) {
+            throw new RuntimeException("Referencia Circular detectada en la matriz matemática. El concepto depende de sí mismo directa o indirectamente: " + codigo);
+        }
 
-        while (matcherFuncion.find()) {
-            String matchCompleto = matcherFuncion.group(0); 
-            String nombreFuncion = matcherFuncion.group(1); 
-            String parametrosCrudos = matcherFuncion.group(2); 
+        Concepto concepto = diccionario.get(codigo);
 
-            Funcion funcion = registroFunciones.get(nombreFuncion);
-            if (funcion != null) {
-                List<BigDecimal> valoresParametros = extraerValoresParametros(parametrosCrudos, contextoMemoria);
-                BigDecimal resultadoFuncion = funcion.ejecutar(valoresParametros);
-                
-                // Reemplaza el texto de la función por el número resultante
-                formulaProcesada = formulaProcesada.replace(matchCompleto, resultadoFuncion.toPlainString());
-            } else {
-                throw new IllegalArgumentException("La función '" + nombreFuncion + "' no está registrada en el motor.");
+        // Si el código no es un concepto configurado, miramos si es un dato puro que mandó la tablet
+        if (concepto == null) {
+            BigDecimal valorCrudo = operativos.getOrDefault(codigo, BigDecimal.ZERO);
+            memoria.put(codigo, valorCrudo);
+            return valorCrudo;
+        }
+
+        // Marcamos que estamos procesando este código
+        enProceso.add(codigo);
+        BigDecimal resultado = BigDecimal.ZERO;
+
+        // RESOLVEMOS SEGÚN EL TIPO
+        switch (concepto.getTipoCalculo().toUpperCase()) {
+            case "ESTATICO":
+                resultado = concepto.getValorFijo() != null ? concepto.getValorFijo() : BigDecimal.ZERO;
+                break;
+            
+            case "DINAMICO":
+                resultado = operativos.getOrDefault(codigo, BigDecimal.ZERO);
+                break;
+            
+            case "FORMULA":
+                if (concepto.getFormula() != null && !concepto.getFormula().isBlank()) {
+                    // Le pasamos el concepto completo para saber si tiene funciones internamente
+                    resultado = resolverFormula(concepto, diccionario, operativos, memoria, enProceso);
+                }
+                break;
+        }
+
+        // Ya terminamos, lo quitamos de la lista de proceso y lo guardamos en la memoria vitalicia
+        enProceso.remove(codigo);
+        memoria.put(codigo, resultado);
+        
+        return resultado;
+    }
+
+    /**
+     * PROCESADOR DE FÓRMULAS: Busca variables y funciones dentro del texto.
+     */
+    private BigDecimal resolverFormula(Concepto concepto, Map<String, Concepto> diccionario, Map<String, BigDecimal> operativos, Map<String, BigDecimal> memoria, Set<String> enProceso) {
+        String formulaProcesada = concepto.getFormula();
+
+        // PASO A: RESOLVER FUNCIONES NATIVAS
+        // 🔥 OPTIMIZACIÓN PRO: Solo ejecutamos Regex complejo si el concepto nos avisó que contiene funciones
+        if (Boolean.TRUE.equals(concepto.getEsFuncion())) {
+            Pattern patternFuncion = Pattern.compile("(F_[A-Z_]+)\\(([^)]*)\\)");
+            Matcher matcherFuncion = patternFuncion.matcher(formulaProcesada);
+
+            while (matcherFuncion.find()) {
+                String matchCompleto = matcherFuncion.group(0); 
+                String nombreFuncion = matcherFuncion.group(1); 
+                String parametrosCrudos = matcherFuncion.group(2); 
+
+                Funcion funcion = registroFunciones.get(nombreFuncion);
+                if (funcion != null) {
+                    List<BigDecimal> valoresParametros = extraerValoresParametros(parametrosCrudos, diccionario, operativos, memoria, enProceso);
+                    BigDecimal resultadoFuncion = funcion.ejecutar(valoresParametros);
+                    
+                    formulaProcesada = formulaProcesada.replace(matchCompleto, resultadoFuncion.toPlainString());
+                } else {
+                    throw new IllegalArgumentException("La función '" + nombreFuncion + "' no está registrada en el motor.");
+                }
             }
         }
 
-        // PASO B: REEMPLAZAR VARIABLES NORMALES POR NÚMEROS (Ej: CERV -> 50000)
+        // PASO B: RESOLVER VARIABLES NORMALES (Ej: IVA * VLR_PRG)
         Pattern patternVariable = Pattern.compile("\\b[a-zA-Z_][a-zA-Z0-9_]*\\b");
         Matcher matcherVariable = patternVariable.matcher(formulaProcesada);
         
         while (matcherVariable.find()) {
             String variable = matcherVariable.group();
             
-            // Si es un número duro o si empieza por F_ (y quedó huérfano), lo ignoramos
+            // Verificamos que no sea un número duro ni una función huérfana
             if (!variable.matches("\\d+") && !variable.startsWith("F_")) {
-                BigDecimal valor = contextoMemoria.getOrDefault(variable, BigDecimal.ZERO);
-                formulaProcesada = formulaProcesada.replace(variable, valor.toPlainString());
+                
+                // 🔥 AQUÍ ESTÁ EL PODER: Mandamos a resolver la variable bajo demanda
+                BigDecimal valor = resolverConcepto(variable, diccionario, operativos, memoria, enProceso);
+                
+                // 🔥 BLINDAJE PRO: Usamos \\b (Word Boundaries) para que "IVA" no sobreescriba "SUBTOTAL_IVA"
+                formulaProcesada = formulaProcesada.replaceAll("\\b" + variable + "\\b", valor.toPlainString());
             }
         }
 
@@ -146,9 +187,9 @@ public class LiquidacionEngine {
     /**
      * EXTRAE PARÁMETROS: Traduce "CERV, 0.19" a una lista real [50000, 0.19]
      */
-    private List<BigDecimal> extraerValoresParametros(String parametrosCrudos, Map<String, BigDecimal> contexto) {
+    private List<BigDecimal> extraerValoresParametros(String parametrosCrudos, Map<String, Concepto> diccionario, Map<String, BigDecimal> operativos, Map<String, BigDecimal> memoria, Set<String> enProceso) {
         if (parametrosCrudos == null || parametrosCrudos.trim().isEmpty()) {
-            return new ArrayList<>(); // Soporta funciones de 0 parámetros como F_GET_IVA()
+            return new ArrayList<>(); 
         }
 
         return Arrays.stream(parametrosCrudos.split(","))
@@ -158,8 +199,8 @@ public class LiquidacionEngine {
                     if (parametro.matches("-?\\d+(\\.\\d+)?")) {
                         return new BigDecimal(parametro);
                     }
-                    // Si es texto (Variable), la busca en el contexto de memoria
-                    return contexto.getOrDefault(parametro, BigDecimal.ZERO);
+                    // Si es texto (Variable), mandamos a resolverlo bajo demanda
+                    return resolverConcepto(parametro, diccionario, operativos, memoria, enProceso);
                 })
                 .toList();
     }
@@ -169,10 +210,8 @@ public class LiquidacionEngine {
      */
     private BigDecimal evaluarMatematica(String expresionMatematica) {
         try {
-            // SpEL calcula "(50000 * 0.19) + 4000" y devuelve un número
             Number resultado = mathParser.parseExpression(expresionMatematica).getValue(mathContext, Number.class);
             if (resultado != null) {
-                // Lo convertimos a BigDecimal con 2 decimales para precisión financiera
                 return new BigDecimal(resultado.toString()).setScale(2, RoundingMode.HALF_UP);
             }
             return BigDecimal.ZERO;

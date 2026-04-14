@@ -60,7 +60,7 @@ public class DocumentoService {
 
         Empresa empresa = empresaRepository.findById(request.empresaId()).orElseThrow();
         
-        // 🔥 LÓGICA TRANSVERSAL: Si el programa es 0, no lo buscamos (es Global/SaaS)
+        // LÓGICA TRANSVERSAL: Si el programa es 0, no lo buscamos (es Global/SaaS)
         Programa programa = null;
         Long progIdBuscador = 0L;
         if (request.programaId() != null && request.programaId() != 0) {
@@ -84,25 +84,23 @@ public class DocumentoService {
         List<Map<String, Object>> detallesProforma = new ArrayList<>();
 
         for (LineaDetalle lineaDTO : lineasCalculadas) {
-            Concepto concepto = conceptoRepository.findByCodigo(lineaDTO.conceptoCodigo()).orElseThrow();
-            
-            // Si el nombre dice "Descuento", asumimos visualmente que resta, sino suma.
-            // (Nota: El motor ya devuelve el valor neto, esto es solo para pintar el UI)
-            String naturalezaVisual = concepto.getNombre().toLowerCase().contains("descuento") ? "RESTA" : "SUMA";
+            // 🔥 CERO HARDCODE: Usamos la naturaleza dictada por el motor/concepto
+            String naturalezaVisual = lineaDTO.naturaleza();
 
             Map<String, Object> detalle = new HashMap<>();
-            detalle.put("conceptoCodigo", concepto.getCodigo());
-            detalle.put("conceptoNombre", concepto.getNombre());
+            detalle.put("conceptoCodigo", lineaDTO.conceptoCodigo());
+            detalle.put("conceptoNombre", lineaDTO.conceptoNombre());
             detalle.put("naturaleza", naturalezaVisual);
             detalle.put("valorTotal", lineaDTO.valorTotal());
             
             detallesProforma.add(detalle);
             
-            // Sumamos o restamos del Gran Total según la naturaleza
-            if (naturalezaVisual.equals("RESTA")) {
-                granTotal = granTotal.subtract(lineaDTO.valorTotal());
+            // 🔥 CORRECCIÓN: Usamos lineaDTO.saldo() en lugar de valorTotal(). 
+            // Así garantizamos que solo se sumen/resten los conceptos RECAUDABLES al final
+            if ("RESTA".equals(naturalezaVisual)) {
+                granTotal = granTotal.subtract(lineaDTO.saldo());
             } else {
-                granTotal = granTotal.add(lineaDTO.valorTotal());
+                granTotal = granTotal.add(lineaDTO.saldo());
             }
         }
 
@@ -131,7 +129,7 @@ public class DocumentoService {
         Tercero tercero = terceroRepository.findById(request.terceroId()).orElseThrow();
         TipoDocumento tipoDoc = tipoDocumentoRepository.findByCodigo(request.tipoDocumentoCodigo()).orElseThrow();
 
-        // 🔥 LÓGICA TRANSVERSAL
+        // LÓGICA TRANSVERSAL
         Programa programa = null;
         Long progIdBuscador = 0L;
         if (request.programaId() != null && request.programaId() != 0) {
@@ -185,17 +183,19 @@ public class DocumentoService {
             detalle.setValorReal(lineaDTO.saldo()); 
             detalle.setSaldo(lineaDTO.saldo());
             
-            // Asignación de Naturaleza Contable
-            String naturaleza = concepto.getNombre().toLowerCase().contains("descuento") ? "RESTA" : "SUMA";
+            // 🔥 CERO HARDCODE: Asignación de Naturaleza Contable desde el motor/concepto
+            String naturaleza = lineaDTO.naturaleza();
             detalle.setNaturaleza(naturaleza);
 
             nuevoDocumento.addDetalle(detalle);
             
-            if (naturaleza.equals("RESTA")) {
-                granTotal = granTotal.subtract(detalle.getValorTotal());
+            // 🔥 CORRECCIÓN: Afectar el total de la factura usando el VALOR REAL y SALDO
+            // Los conceptos no recaudables (donde valorReal = 0) quedarán en la BD para auditoría pero no sumarán plata
+            if ("RESTA".equals(naturaleza)) {
+                granTotal = granTotal.subtract(detalle.getValorReal());
                 granSaldo = granSaldo.subtract(detalle.getSaldo());
             } else {
-                granTotal = granTotal.add(detalle.getValorTotal());
+                granTotal = granTotal.add(detalle.getValorReal());
                 granSaldo = granSaldo.add(detalle.getSaldo());
             }
         }
@@ -205,8 +205,6 @@ public class DocumentoService {
 
         return documentoRepository.save(nuevoDocumento);
     }
-
-    // ... (Mantén el resto del código igual: reliquidarDocumento, generarConsecutivoSeguro, etc.)
     
     @Transactional
     public Documento reliquidarDocumento(Long idDocumentoOriginal) {
@@ -281,7 +279,7 @@ public class DocumentoService {
         nota.setDocumentoPadre(padre);
         nota.setFechaEmision(LocalDateTime.now());
         
-        // 🔥 CLAVE 1: Estado APLICADO. Así evitamos que la Nota aparezca como una deuda pendiente en la Cartera
+        // CLAVE 1: Estado APLICADO. Así evitamos que la Nota aparezca como una deuda pendiente en la Cartera
         nota.setEstado("APLICADO"); 
         nota.setObservaciones(request.observaciones());
         
@@ -326,7 +324,7 @@ public class DocumentoService {
             detalleNota.setValorTotal(valorAjuste);
             detalleNota.setValorReal(valorAjuste);
             
-            // 🔥 CLAVE 2: La línea de la nota conserva su saldo igual al ajuste para justificar de qué fue
+            // CLAVE 2: La línea de la nota conserva su saldo igual al ajuste para justificar de qué fue
             detalleNota.setSaldo(valorAjuste); 
             
             detalleNota.setNaturaleza("NC".equals(request.tipoNota()) ? "RESTA" : "SUMA");
@@ -337,7 +335,7 @@ public class DocumentoService {
 
         nota.setTotalDocumento(granTotalNota);
         
-        // 🔥 CLAVE 3: La cabecera de la nota conserva su saldo total para que el Libro de Documentos sea transparente
+        // CLAVE 3: La cabecera de la nota conserva su saldo total para que el Libro de Documentos sea transparente
         nota.setSaldoDocumento(granTotalNota); 
 
         // 4. Guardar cambios en Cascada
