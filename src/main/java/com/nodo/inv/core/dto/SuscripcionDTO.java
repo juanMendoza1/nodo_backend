@@ -10,10 +10,10 @@ public class SuscripcionDTO {
     private Integer dispositivosActivos;
     private LocalDateTime fechaVencimiento;
     private Boolean activo;
-    
-    // Objetos anidados planos para el SearchableSelect del Frontend
+
     private EmpresaMinDTO empresa;
     private ProgramaMinDTO programa;
+    private CicloMinDTO cicloFacturacion; // 🔥 Ahora el DTO ya conoce el ciclo
 
     @Data
     public static class EmpresaMinDTO {
@@ -25,6 +25,13 @@ public class SuscripcionDTO {
     public static class ProgramaMinDTO {
         private Long id;
         private String codigo;
+        private String nombre;
+    }
+
+    // 🔥 ESTA ES LA CLASE QUE FALTABA Y CAUSABA EL ERROR
+    @Data
+    public static class CicloMinDTO {
+        private Long id;
         private String nombre;
     }
 }

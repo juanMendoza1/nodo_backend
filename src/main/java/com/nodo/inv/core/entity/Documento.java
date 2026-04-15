@@ -73,4 +73,12 @@ public class Documento {
         detalles.add(detalle);
         detalle.setDocumento(this);
     }
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ciclo_ideregistro")
+    private CicloFacturacion cicloFacturacion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "per_ideregistro")
+    private PeriodoFacturacion periodoFacturacion;
 }

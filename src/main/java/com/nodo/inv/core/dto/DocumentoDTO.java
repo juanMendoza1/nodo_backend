@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
-// EL PARAGUAS PRINCIPAL: Lo que se devuelve cuando consultan una factura ya guardada
 public record DocumentoDTO(
     Long id,
     String consecutivo,
@@ -21,19 +20,26 @@ public record DocumentoDTO(
     String metadataJson
 ) {
 
-    // 1. EL DTO DE PETICIÓN (REQUEST): Lo que el Frontend envía para liquidar
+    // 1. PETICIÓN INDIVIDUAL
     public record CrearDocumentoRequest(
         Long empresaId,
         Long programaId,
         Long terceroId,
-        String tipoDocumentoCodigo, // Ej: "FV" (Factura Venta)
-        String codigoLiquidacion,   // Ej: "LIQ_POS_01" (Para saber qué fórmula aplicar)
-        
-        // Aquí viene la plata cruda. Ej: {"CERV" -> 50000, "HORA_BILLAR" -> 20000}
-        Map<String, BigDecimal> valoresOperativos 
+        String tipoDocumentoCodigo, 
+        String codigoLiquidacion,   
+        Map<String, BigDecimal> valoresOperativos,
+        Long cicloId,   // 🔥 IMPORTANTE PARA RASTREAR
+        Long periodoId  // 🔥 IMPORTANTE PARA RASTREAR
     ) {}
 
-    // 2. EL DTO INTERNO DEL MOTOR: Lo que el LiquidacionEngine calcula en memoria
+    // 2. 🔥 NUEVA PETICIÓN MASIVA (POR LOTE)
+    public record LiquidarLoteRequest(
+    	Long empresaId,	
+        Long cicloId,
+        Long periodoId,
+        String codigoLiquidacion // La matriz a aplicar a todos
+    ) {}
+
     public record LineaDetalle(
     	String conceptoCodigo,	
         String conceptoNombre,
@@ -43,11 +49,10 @@ public record DocumentoDTO(
         String naturaleza
     ) {}
     
- // 3. EL DTO PARA EMITIR NOTAS (NC/ND)
     public record EmitirNotaRequest(
         Long empresaId,
         Long documentoPadreId,
-        String tipoNota, // 'NC' o 'ND'
+        String tipoNota,
         String observaciones,
         List<DetalleNotaRequest> detalles
     ) {}

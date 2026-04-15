@@ -35,4 +35,8 @@ public class SuscripcionPrograma {
 
     @Column(name = "sp_estado")
     private Boolean activo; // Para bloquear todo el servicio si no pagan
+    
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "ciclo_ideregistro", nullable = false)
+    private CicloFacturacion cicloFacturacion;
 }
