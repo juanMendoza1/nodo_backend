@@ -1,7 +1,9 @@
 package com.nodo.inv.core.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nodo.inv.Utils.EstadoDocumento;
 import com.nodo.inv.Utils.EstadoPeriodo;
+import com.nodo.inv.Utils.Naturaleza;
 import com.nodo.inv.core.dto.DocumentoDTO;
 import com.nodo.inv.core.dto.DocumentoDTO.CrearDocumentoRequest;
 import com.nodo.inv.core.dto.DocumentoDTO.LineaDetalle;
@@ -37,13 +39,13 @@ public class DocumentoService {
     private final ConsecutivoDocumentoRepository consecutivoRepository;
     private final ObjectMapper objectMapper;
     
-    // 🔥 NUEVOS REPOSITORIOS INYECTADOS
+    // 🔥 REPOSITORIOS INYECTADOS
     private final SuscripcionProgramaRepository suscripcionRepo;
     private final CicloFacturacionRepository cicloRepository;
     private final PeriodoFacturacionRepository periodoRepository;
 
     // ========================================================================
-    // 1. PRE-LIQUIDACIÓN (Igual)
+    // 1. PRE-LIQUIDACIÓN (Proyección)
     // ========================================================================
     @Transactional(readOnly = true)
     public Map<String, Object> preliquidarDocumento(CrearDocumentoRequest request) {
@@ -94,6 +96,15 @@ public class DocumentoService {
     // ========================================================================
     @Transactional
     public Documento generarDocumentoLiquidacion(CrearDocumentoRequest request) {
+        if (request.suscripcionId() != null && request.periodoId() != null) {
+            boolean yaFacturado = documentoRepository.existeFacturaParaSuscripcionYPeriodo(
+                    request.suscripcionId(), request.periodoId()
+            );
+            if (yaFacturado) {
+                throw new RuntimeException("Este contrato (suscripción) ya fue facturado en el periodo actual.");
+            }
+        }
+
         Empresa empresa = empresaRepository.findById(request.empresaId()).orElseThrow();
         Tercero tercero = terceroRepository.findById(request.terceroId()).orElseThrow();
         TipoDocumento tipoDoc = tipoDocumentoRepository.findByCodigo(request.tipoDocumentoCodigo()).orElseThrow();
@@ -116,16 +127,12 @@ public class DocumentoService {
         nuevoDocumento.setTercero(tercero);
         nuevoDocumento.setTipoDocumento(tipoDoc);
         nuevoDocumento.setFechaEmision(LocalDateTime.now());
-        nuevoDocumento.setEstado("EMITIDO");
+        nuevoDocumento.setEstado(request.estadoDocumento() != null ? request.estadoDocumento() : EstadoDocumento.A.name());
         nuevoDocumento.setConsecutivo(generarConsecutivoSeguro(empresa, tipoDoc));
         
-        // 🔥 INYECTAMOS EL RASTRO DEL PERIODO Y CICLO
-        if (request.cicloId() != null) {
-            nuevoDocumento.setCicloFacturacion(cicloRepository.findById(request.cicloId()).orElse(null));
-        }
-        if (request.periodoId() != null) {
-            nuevoDocumento.setPeriodoFacturacion(periodoRepository.findById(request.periodoId()).orElse(null));
-        }
+        if (request.cicloId() != null) nuevoDocumento.setCicloFacturacion(cicloRepository.findById(request.cicloId()).orElse(null));
+        if (request.periodoId() != null) nuevoDocumento.setPeriodoFacturacion(periodoRepository.findById(request.periodoId()).orElse(null));
+        if (request.suscripcionId() != null) nuevoDocumento.setSuscripcion(suscripcionRepo.findById(request.suscripcionId()).orElse(null));
 
         try { nuevoDocumento.setMetadataJson(objectMapper.writeValueAsString(request)); } catch (Exception ignored) {}
 
@@ -143,11 +150,11 @@ public class DocumentoService {
             detalle.setValorTotal(lineaDTO.valorTotal());
             detalle.setValorReal(lineaDTO.saldo()); 
             detalle.setSaldo(lineaDTO.saldo());
-            detalle.setNaturaleza(lineaDTO.naturaleza());
+            // 🔥 El detalle YA NO GUARDA LA NATURALEZA, la hereda del Concepto
 
             nuevoDocumento.addDetalle(detalle);
             
-            if ("RESTA".equals(lineaDTO.naturaleza())) {
+            if (concepto.getNaturaleza() == Naturaleza.R) {
                 granTotal = granTotal.subtract(detalle.getValorReal());
                 granSaldo = granSaldo.subtract(detalle.getSaldo());
             } else {
@@ -163,7 +170,7 @@ public class DocumentoService {
     }
     
     // ========================================================================
-    // 3. 🔥 FACTURACIÓN MASIVA (BATCH BILLING)
+    // 3.FACTURACIÓN MASIVA (BATCH BILLING INTELIGENTE)
     // ========================================================================
     @Transactional
     public Map<String, Object> liquidarLotePorCiclo(DocumentoDTO.LiquidarLoteRequest request) {
@@ -172,7 +179,6 @@ public class DocumentoService {
         PeriodoFacturacion periodo = periodoRepository.findById(request.periodoId())
             .orElseThrow(() -> new RuntimeException("Periodo no encontrado"));
             
-        // Regla estricta: Solo si está en modo líquido
         if (periodo.getEstado() != EstadoPeriodo.ABIERTO && periodo.getEstado() != EstadoPeriodo.LIQUIDANDO) {
             throw new RuntimeException("El periodo debe estar ABIERTO o LIQUIDANDO para poder facturar masivamente.");
         }
@@ -183,31 +189,56 @@ public class DocumentoService {
         }
 
         int facturasGeneradas = 0;
+        int facturasOmitidas = 0; 
         BigDecimal totalLote = BigDecimal.ZERO;
+        
+        List<Map<String, Object>> detalleFacturas = new ArrayList<>();
 
         for (SuscripcionPrograma sub : suscripciones) {
-            // Ignorar comercios que no tienen tercero legal configurado
             if (sub.getEmpresa().getTercero() == null) continue;
+            if (sub.getLiquidacion() == null) continue;
+
+            
+            if (documentoRepository.existeFacturaParaSuscripcionYPeriodo(sub.getId(), request.periodoId())) {
+                facturasOmitidas++;
+                continue;
+            }
 
             Map<String, BigDecimal> valoresOperativos = new HashMap<>();
             valoresOperativos.put("CANTIDAD_TABLETS", new BigDecimal(sub.getDispositivosActivos() != null ? sub.getDispositivosActivos() : 0));
 
-            // Simulamos la misma petición que mandaría el FrontEnd
+            Long progIdCorrecto = sub.getLiquidacion().getPrograma() != null ? sub.getLiquidacion().getPrograma().getId() : 0L;
+
+            
+            String tipoDocConfigurado = sub.getLiquidacion().getTipoDocumentoGenerado() != null ? 
+                    sub.getLiquidacion().getTipoDocumentoGenerado().getCodigo() : "FV";
+                
             CrearDocumentoRequest reqIndividual = new CrearDocumentoRequest(
-                    request.empresaId(), // 🔥 FIX: El emisor de la factura es NODO MASTER, no el cliente.
-                    0L, 
-                    sub.getEmpresa().getTercero().getId(), // El cliente que recibe el cobro
-                    "FV", 
-                    request.codigoLiquidacion(),
-                    valoresOperativos,
-                    request.cicloId(),
-                    request.periodoId()
-                );
+                request.empresaId(), 
+                progIdCorrecto, 
+                sub.getEmpresa().getTercero().getId(), 
+                tipoDocConfigurado, 
+                sub.getLiquidacion().getCodigo(), 
+                valoresOperativos,
+                request.cicloId(),
+                request.periodoId(),
+                sub.getId() ,
+                EstadoDocumento.G.name()
+            );
 
             try {
                 Documento doc = generarDocumentoLiquidacion(reqIndividual);
                 facturasGeneradas++;
                 totalLote = totalLote.add(doc.getTotalDocumento());
+                
+                Map<String, Object> infoFactura = new HashMap<>();
+                infoFactura.put("consecutivo", doc.getConsecutivo());
+                infoFactura.put("cliente", sub.getEmpresa().getNombreComercial());
+                infoFactura.put("nit", sub.getEmpresa().getTercero().getDocumento());
+                infoFactura.put("suscripcion", "ID: " + sub.getId() + " - " + sub.getPrograma().getNombre());
+                infoFactura.put("total", doc.getTotalDocumento());
+                detalleFacturas.add(infoFactura);
+                
             } catch (Exception e) {
                 log.error("Error liquidando empresa " + sub.getEmpresa().getNombreComercial(), e);
             }
@@ -215,14 +246,16 @@ public class DocumentoService {
         
         return Map.of(
             "facturasGeneradas", facturasGeneradas,
+            "facturasOmitidas", facturasOmitidas, 
             "totalFacturado", totalLote,
+            "detalleFacturas", detalleFacturas, 
             "mensaje", "Lote procesado exitosamente."
         );
     }
-
-    // ... (El resto de métodos: reliquidarDocumento, generarConsecutivoSeguro, buscarPadrePorConsecutivo, emitirNota se quedan igual)
-    // LOS DEJO AQUÍ PARA QUE COPIES Y PEGUES COMPLETO
     
+    // ========================================================================
+    // 4. OTROS MÉTODOS
+    // ========================================================================
     @Transactional
     public Documento reliquidarDocumento(Long idDocumentoOriginal) {
         Documento original = documentoRepository.findById(idDocumentoOriginal).orElseThrow();
@@ -272,31 +305,45 @@ public class DocumentoService {
     public Documento emitirNota(DocumentoDTO.EmitirNotaRequest request) {
         Empresa empresa = empresaRepository.findById(request.empresaId()).orElseThrow();
         Documento padre = documentoRepository.findById(request.documentoPadreId()).orElseThrow();
-        TipoDocumento tipoDoc = tipoDocumentoRepository.findByCodigo(request.tipoNota()).orElseThrow();
+        
+        // La Nota (Crédito o Débito) tiene su propia naturaleza (R o S)
+        TipoDocumento tipoDocNota = tipoDocumentoRepository.findByCodigo(request.tipoNota()).orElseThrow();
+        Naturaleza natNota = tipoDocNota.getNaturaleza();
 
         Documento nota = new Documento();
         nota.setEmpresa(empresa);
         nota.setPrograma(padre.getPrograma());
         nota.setTercero(padre.getTercero());
-        nota.setTipoDocumento(tipoDoc);
+        nota.setTipoDocumento(tipoDocNota);
         nota.setDocumentoPadre(padre);
         nota.setFechaEmision(LocalDateTime.now());
-        nota.setEstado("APLICADO"); 
+        nota.setEstado(EstadoDocumento.A.name()); 
         nota.setObservaciones(request.observaciones());
-        nota.setConsecutivo(generarConsecutivoSeguro(empresa, tipoDoc));
+        nota.setConsecutivo(generarConsecutivoSeguro(empresa, tipoDocNota));
 
         BigDecimal granTotalNota = BigDecimal.ZERO;
 
         for (DocumentoDTO.DetalleNotaRequest detRequest : request.detalles()) {
             DocumentoDetalle detallePadre = padre.getDetalles().stream().filter(d -> d.getId().equals(detRequest.documentoDetallePadreId())).findFirst().orElseThrow();
             BigDecimal valorAjuste = detRequest.valorAjuste();
+            
+            // El concepto tiene su propia naturaleza original
+            Naturaleza natConcepto = detallePadre.getConcepto().getNaturaleza();
 
-            if ("NC".equals(request.tipoNota())) {
-                detallePadre.setSaldo(detallePadre.getSaldo().subtract(valorAjuste));
-                padre.setSaldoDocumento(padre.getSaldoDocumento().subtract(valorAjuste));
-            } else if ("ND".equals(request.tipoNota())) {
+            // 🔥 LEY DE LOS SIGNOS (Álgebra de Partida Doble)
+            // S * S = S (Suma)
+            // R * R = S (Suma)
+            // S * R = R (Resta)
+            // R * S = R (Resta)
+            boolean sumaAlPadre = (natNota == Naturaleza.S && natConcepto == Naturaleza.S) || 
+                                  (natNota == Naturaleza.R && natConcepto == Naturaleza.R);
+
+            if (sumaAlPadre) {
                 detallePadre.setSaldo(detallePadre.getSaldo().add(valorAjuste));
                 padre.setSaldoDocumento(padre.getSaldoDocumento().add(valorAjuste));
+            } else {
+                detallePadre.setSaldo(detallePadre.getSaldo().subtract(valorAjuste));
+                padre.setSaldoDocumento(padre.getSaldoDocumento().subtract(valorAjuste));
             }
 
             DocumentoDetalle detalleNota = new DocumentoDetalle();
@@ -306,7 +353,6 @@ public class DocumentoService {
             detalleNota.setValorTotal(valorAjuste);
             detalleNota.setValorReal(valorAjuste);
             detalleNota.setSaldo(valorAjuste); 
-            detalleNota.setNaturaleza("NC".equals(request.tipoNota()) ? "RESTA" : "SUMA");
 
             nota.addDetalle(detalleNota);
             granTotalNota = granTotalNota.add(valorAjuste);
@@ -317,5 +363,25 @@ public class DocumentoService {
 
         documentoRepository.save(padre); 
         return documentoRepository.save(nota);
+    }
+    
+    @Transactional
+    public Map<String, Object> aprobarLote(Long cicloId, Long periodoId) {
+        List<Documento> generados = documentoRepository.findByCicloFacturacionIdAndPeriodoFacturacionIdAndEstado(
+                cicloId, periodoId, EstadoDocumento.G.name());
+                
+        if (generados.isEmpty()) {
+            throw new RuntimeException("No hay documentos en estado GENERADO para este ciclo y periodo.");
+        }
+        
+        for (Documento doc : generados) {
+            doc.setEstado(EstadoDocumento.A.name()); // Pasamos a ACTIVO
+        }
+        documentoRepository.saveAll(generados);
+        
+        return Map.of(
+            "aprobados", generados.size(),
+            "mensaje", "Lote aprobado exitosamente. Las facturas ahora son oficiales."
+        );
     }
 }

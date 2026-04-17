@@ -15,6 +15,7 @@ public class SuscripcionGuardarDTO {
     
     // 🔥 EL CAMPO CLAVE PARA EL MOTOR DE FACTURACIÓN
     private RelacionDTO cicloFacturacion;
+    private RelacionDTO liquidacion;
 
     @Data
     public static class RelacionDTO {

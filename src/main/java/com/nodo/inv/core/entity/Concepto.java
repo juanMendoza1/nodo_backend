@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import java.math.BigDecimal;
 
+import com.nodo.inv.Utils.Naturaleza;
+
 @Data
 @Entity
 @Table(name = "con_concepto")
@@ -56,8 +58,9 @@ public class Concepto {
     @Column(name = "conc_aplica_iva", nullable = false)
     private Boolean aplicaIva = false;
     
-    @Column(name = "conc_naturaleza", length = 10)
-    private String naturaleza = "SUMA"; // "SUMA" o "RESTA"
+    @Enumerated(EnumType.STRING)
+    @Column(name = "conc_naturaleza", nullable = false)
+    private Naturaleza naturaleza;
 
     // --- AGRUPACIONES PARAMÉTRICAS ---
     @ManyToOne(fetch = FetchType.LAZY)

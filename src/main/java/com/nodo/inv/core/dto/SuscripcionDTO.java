@@ -14,6 +14,7 @@ public class SuscripcionDTO {
     private EmpresaMinDTO empresa;
     private ProgramaMinDTO programa;
     private CicloMinDTO cicloFacturacion; // 🔥 Ahora el DTO ya conoce el ciclo
+    private LiquidacionMinDTO liquidacion;
 
     @Data
     public static class EmpresaMinDTO {
@@ -34,4 +35,12 @@ public class SuscripcionDTO {
         private Long id;
         private String nombre;
     }
+    
+    @Data
+    public static class LiquidacionMinDTO {
+        private Long id;
+        private String codigo;
+        private String nombre;
+    }
+    
 }

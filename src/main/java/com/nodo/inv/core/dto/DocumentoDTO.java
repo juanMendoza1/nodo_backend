@@ -5,6 +5,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
+import com.nodo.inv.Utils.Naturaleza;
+
 public record DocumentoDTO(
     Long id,
     String consecutivo,
@@ -28,17 +30,17 @@ public record DocumentoDTO(
         String tipoDocumentoCodigo, 
         String codigoLiquidacion,   
         Map<String, BigDecimal> valoresOperativos,
-        Long cicloId,   // 🔥 IMPORTANTE PARA RASTREAR
-        Long periodoId  // 🔥 IMPORTANTE PARA RASTREAR
+        Long cicloId,   
+        Long periodoId ,
+        Long suscripcionId,
+        String estadoDocumento
     ) {}
 
-    // 2. 🔥 NUEVA PETICIÓN MASIVA (POR LOTE)
     public record LiquidarLoteRequest(
-    	Long empresaId,	
-        Long cicloId,
-        Long periodoId,
-        String codigoLiquidacion // La matriz a aplicar a todos
-    ) {}
+        	Long empresaId,	
+            Long cicloId,
+            Long periodoId
+        ) {}
 
     public record LineaDetalle(
     	String conceptoCodigo,	
@@ -46,7 +48,7 @@ public record DocumentoDTO(
         BigDecimal cantidad,
         BigDecimal valorTotal,
         BigDecimal saldo,
-        String naturaleza
+        Naturaleza naturaleza
     ) {}
     
     public record EmitirNotaRequest(

@@ -38,8 +38,5 @@ public class DocumentoDetalle {
     private BigDecimal valorReal; // = valorTotal (si recaudo: S), sino 0
 
     @Column(name = "ddet_saldo", precision = 15, scale = 2)
-    private BigDecimal saldo; // Nace igual al valorReal, baja con los pagos
-
-    @Column(name = "ddet_naturaleza", length = 10)
-    private String naturaleza; // "SUMA" o "RESTA"
+    private BigDecimal saldo; 
 }

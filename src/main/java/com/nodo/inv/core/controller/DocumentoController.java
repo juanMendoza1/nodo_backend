@@ -116,4 +116,9 @@ public class DocumentoController {
             return ResponseEntity.ok(Map.of("mensaje", "Nota emitida exitosamente", "consecutivo", nota.getConsecutivo(), "total", nota.getTotalDocumento()));
         } catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", e.getMessage())); }
     }
+    
+    @PutMapping("/lote/aprobar")
+    public ResponseEntity<?> aprobarLote(@RequestParam Long cicloId, @RequestParam Long periodoId) {
+        return ResponseEntity.ok(documentoService.aprobarLote(cicloId, periodoId));
+    }
 }

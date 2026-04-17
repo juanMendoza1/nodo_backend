@@ -1,5 +1,6 @@
 package com.nodo.inv.core.engine;
 
+import com.nodo.inv.Utils.Naturaleza;
 import com.nodo.inv.core.dto.DocumentoDTO.LineaDetalle;
 import com.nodo.inv.core.entity.Concepto;
 import com.nodo.inv.core.entity.ConceptoLiquidacion;
@@ -36,7 +37,7 @@ public class LiquidacionEngine {
     /**
      * MÉTODO MAESTRO: Calcula toda la liquidación bajo demanda (Inteligente).
      */
-    public List<LineaDetalle> ejecutarLiquidacion(List<ConceptoLiquidacion> receta, Map<String, BigDecimal> valoresOperativos) {
+public List<LineaDetalle> ejecutarLiquidacion(List<ConceptoLiquidacion> receta, Map<String, BigDecimal> valoresOperativos) {
         
         List<LineaDetalle> detallesCalculados = new ArrayList<>();
         
@@ -63,8 +64,8 @@ public class LiquidacionEngine {
                 boolean esRecaudable = Boolean.TRUE.equals(concepto.getEsRecaudable());
                 BigDecimal valorReal = esRecaudable ? resultado : BigDecimal.ZERO;
                 
-                // Extraemos la naturaleza paramétrica (Por defecto SUMA para evitar nulos)
-                String naturaleza = concepto.getNaturaleza() != null ? concepto.getNaturaleza() : "SUMA";
+                // 🔥 EL FIX PRO: Usamos el Enum Naturaleza (Por defecto S para evitar nulos)
+                Naturaleza naturaleza = concepto.getNaturaleza() != null ? concepto.getNaturaleza() : Naturaleza.S;
                 
                 detallesCalculados.add(new LineaDetalle(
                         concepto.getCodigo(),
@@ -72,7 +73,7 @@ public class LiquidacionEngine {
                         BigDecimal.ONE, // Cantidad por defecto
                         resultado,      // Valor Total (Siempre se muestra la huella del cálculo)
                         valorReal,      // Saldo / Valor Real (Si no es recaudable, esto va en 0)
-                        naturaleza
+                        naturaleza      // 🔥 Pasamos el Enum puro
                 ));
             }
         }

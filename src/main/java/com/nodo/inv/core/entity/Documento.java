@@ -81,4 +81,10 @@ public class Documento {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "per_ideregistro")
     private PeriodoFacturacion periodoFacturacion;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sp_ideregistro") 
+    private SuscripcionPrograma suscripcion;
+    
+    
 }

@@ -39,4 +39,9 @@ public class SuscripcionPrograma {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "ciclo_ideregistro", nullable = false)
     private CicloFacturacion cicloFacturacion;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "liq_ideregistro")
+    private Liquidacion liquidacion;
+    
 }

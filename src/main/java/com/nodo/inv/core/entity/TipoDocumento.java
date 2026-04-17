@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.nodo.inv.Utils.Naturaleza;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -25,8 +26,9 @@ public class TipoDocumento {
     @Column(name = "tdoc_nombre", nullable = false, length = 100)
     private String nombre; // Ej: "Factura de Venta", "Nota Crédito"
 
-    @Column(name = "tdoc_naturaleza", length = 10)
-    private String naturaleza; // "SUMA" o "RESTA"
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tdoc_naturaleza", nullable = false)
+    private Naturaleza naturaleza;
 
     @Column(name = "tdoc_estado")
     private Boolean activo = true;

@@ -1,6 +1,7 @@
 package com.nodo.inv.config;
 
 import com.nodo.inv.Utils.EstadoUsuario;
+import com.nodo.inv.Utils.Naturaleza;
 import com.nodo.inv.core.entity.Clase;
 import com.nodo.inv.core.entity.DominioOperativo;
 import com.nodo.inv.core.entity.Empresa;
@@ -139,11 +140,11 @@ public class DataInitializer implements CommandLineRunner {
             // ==========================================
             // 5. TIPOS DE DOCUMENTO Y FLUJO CONTABLE
             // ==========================================
-            TipoDocumento fv = checkAndCreateTipoDocumento("FV", "Factura de Venta", "SUMA");
-            TipoDocumento ce = checkAndCreateTipoDocumento("CE", "Comprobante de Egreso", "RESTA"); 
-            TipoDocumento rc = checkAndCreateTipoDocumento("RC", "Recibo de Caja", "RESTA"); 
-            TipoDocumento nc = checkAndCreateTipoDocumento("NC", "Nota Crédito", "RESTA");
-            TipoDocumento nd = checkAndCreateTipoDocumento("ND", "Nota Débito", "SUMA");
+            TipoDocumento fv = checkAndCreateTipoDocumento("FV", "Factura de Venta", Naturaleza.S);
+            TipoDocumento ce = checkAndCreateTipoDocumento("CE", "Comprobante de Egreso", Naturaleza.R); 
+            TipoDocumento rc = checkAndCreateTipoDocumento("RC", "Recibo de Caja", Naturaleza.R); 
+            TipoDocumento nc = checkAndCreateTipoDocumento("NC", "Nota Crédito", Naturaleza.R);
+            TipoDocumento nd = checkAndCreateTipoDocumento("ND", "Nota Débito", Naturaleza.S);
 
             // Reglas de Flujo de Documentos
             if (fv.getDocumentosPermitidos().isEmpty()) {
@@ -282,7 +283,7 @@ public class DataInitializer implements CommandLineRunner {
         return u;
     }
 
-    private TipoDocumento checkAndCreateTipoDocumento(String cod, String nombre, String naturaleza) {
+    private TipoDocumento checkAndCreateTipoDocumento(String cod, String nombre, Naturaleza naturaleza) {
         return tipoDocumentoRepository.findByCodigo(cod).orElseGet(() -> {
             TipoDocumento td = new TipoDocumento();
             td.setCodigo(cod);

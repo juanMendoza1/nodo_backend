@@ -33,4 +33,12 @@ public interface DocumentoRepository extends JpaRepository<Documento, Long> {
     List<Documento> findByDocumentoPadreIdAndEstado(Long documentoPadreId, String estado);
     
     java.util.Optional<Documento> findByEmpresaIdAndConsecutivo(Long empresaId, String consecutivo);
+    
+    @Query("SELECT COUNT(d) > 0 FROM Documento d WHERE d.suscripcion.id = :suscripcionId AND d.periodoFacturacion.id = :periodoId AND d.estado <> 'E'")
+    boolean existeFacturaParaSuscripcionYPeriodo(
+            @Param("suscripcionId") Long suscripcionId, 
+            @Param("periodoId") Long periodoId
+    );
+    
+    List<Documento> findByCicloFacturacionIdAndPeriodoFacturacionIdAndEstado(Long cicloId, Long periodoId, String estado);
 }
