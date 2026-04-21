@@ -2,11 +2,15 @@ package com.nodo.inv.core.service;
 
 import com.nodo.inv.core.dto.ProgramaDTO;
 import com.nodo.inv.core.entity.DominioOperativo;
+import com.nodo.inv.core.entity.Estructura;
 import com.nodo.inv.core.entity.Permiso;
 import com.nodo.inv.core.entity.Programa;
+import com.nodo.inv.core.entity.ProgramaEstructura;
 import com.nodo.inv.core.entity.ProgramaPermiso;
 import com.nodo.inv.core.repository.DominioOperativoRepository;
+import com.nodo.inv.core.repository.EstructuraRepository;
 import com.nodo.inv.core.repository.PermisoRepository;
+import com.nodo.inv.core.repository.ProgramaEstructuraRepository;
 import com.nodo.inv.core.repository.ProgramaPermisoRepository;
 import com.nodo.inv.core.repository.ProgramaRepository;
 
@@ -24,8 +28,9 @@ public class ProgramaService {
     private final ProgramaRepository programaRepository;
     private final PermisoRepository permisoRepository;
     private final ProgramaPermisoRepository programaPermisoRepository;
+    private final EstructuraRepository estructuraRepository;
+    private final ProgramaEstructuraRepository programaEstructuraRepository;
     
-    // 🔥 INYECTAMOS EL REPOSITORIO DE DOMINIOS
     private final DominioOperativoRepository dominioOperativoRepository;
 
     @Transactional(readOnly = true)
@@ -40,7 +45,7 @@ public class ProgramaService {
         if (dto.getId() != null) {
             programa = programaRepository.findById(dto.getId())
                     .orElseThrow(() -> new RuntimeException("Programa no encontrado"));
-            // Limpiamos las fichas de lego anteriores
+
             programaPermisoRepository.deleteByPrograma(programa);
         } else {
             if (programaRepository.existsByCodigo(dto.getCodigo())) {
@@ -55,7 +60,6 @@ public class ProgramaService {
         programa.setVersion(dto.getVersion() != null ? dto.getVersion() : "1.0.0");
         programa.setActivo(dto.getActivo() != null ? dto.getActivo() : true);
 
-        // 🔥 NUEVO: LÓGICA DE ASIGNACIÓN DEL DOMINIO OPERATIVO (RELACIÓN JPA)
         if (dto.getDominioId() != null) {
             DominioOperativo dominio = dominioOperativoRepository.findById(dto.getDominioId())
                     .orElseThrow(() -> new RuntimeException("Dominio Operativo no encontrado"));
@@ -76,6 +80,22 @@ public class ProgramaService {
                 programaPermisoRepository.save(pp);
             }
         }
+        
+        programaEstructuraRepository.deleteByPrograma(guardado);
+        if (dto.getEstructurasIds() != null && !dto.getEstructurasIds().isEmpty()) {
+            for (Long estId : dto.getEstructurasIds()) {
+                Estructura est = estructuraRepository.findById(estId)
+                        .orElseThrow(() -> new RuntimeException("Estructura no válida"));
+                ProgramaEstructura pe = new ProgramaEstructura();
+                pe.setPrograma(guardado);
+                pe.setEstructura(est);
+                programaEstructuraRepository.save(pe);
+            }
+        }
+        
+        List<ProgramaEstructura> estructuras = programaEstructuraRepository.findByPrograma(programa);
+        dto.setEstructurasIds(estructuras.stream().map(pe -> pe.getEstructura().getId()).collect(Collectors.toList()));
+        dto.setEstructurasCodigos(estructuras.stream().map(pe -> pe.getEstructura().getCodigo()).collect(Collectors.toList()));
 
         return mapearADto(guardado);
     }

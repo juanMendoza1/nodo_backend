@@ -55,4 +55,10 @@ public class EstructuraController {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
+    
+    @GetMapping("/empresa/{empresaId}/permitidas")
+    @PreAuthorize("hasAnyRole('OPERATIVO', 'ADMIN', 'SUPER')")
+    public ResponseEntity<List<Estructura>> listarPermitidas(@PathVariable Long empresaId) {
+        return ResponseEntity.ok(estructuraService.obtenerPermitidasPorEmpresa(empresaId));
+    }
 }

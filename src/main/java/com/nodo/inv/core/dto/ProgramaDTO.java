@@ -17,4 +17,6 @@ public class ProgramaDTO {
     private String dominioOperativo;
     private Long dominioId; 
     private String dominioNombre;
+    private List<Long> estructurasIds;
+    private List<String> estructurasCodigos;
 }

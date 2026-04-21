@@ -55,4 +55,9 @@ public class EstructuraService {
             throw new RuntimeException("No se puede eliminar la Estructura porque tiene Unidades asociadas.");
         }
     }
+    
+    @Transactional(readOnly = true)
+    public List<Estructura> obtenerPermitidasPorEmpresa(Long empresaId) {
+        return estructuraRepository.findPermitidasPorEmpresa(empresaId);
+    }
 }
