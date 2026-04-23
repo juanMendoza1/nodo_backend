@@ -29,7 +29,7 @@ public class Empresa {
     @Column(name = "emp_ideregistro")
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ter_ideregistro", nullable = false)
     private Tercero tercero;
 
@@ -38,13 +38,11 @@ public class Empresa {
 
     @Column(name = "emp_estado")
     private Boolean activo;
-
-    // 🔥 SOLUCIÓN: Ignoramos las listas para romper el bucle infinito
+ 
     @JsonIgnore
     @OneToMany(mappedBy = "empresa", fetch = FetchType.LAZY)
     private List<Usuario> usuarios;
     
-    // 🔥 SOLUCIÓN: Ignoramos los programas contratados para que no llame de vuelta a la empresa
     @JsonIgnore
     @OneToMany(mappedBy = "empresa", fetch = FetchType.LAZY)
     private List<EmpresaPrograma> programasContratados;

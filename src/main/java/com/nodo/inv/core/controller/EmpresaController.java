@@ -19,7 +19,6 @@ public class EmpresaController {
 
     private final EmpresaService empresaService;
 
-    // 🔥 Este es el método que te faltaba y generaba el GET not supported y el 403 Forbidden
     @GetMapping
     public ResponseEntity<List<Empresa>> listarTodas() {
         return ResponseEntity.ok(empresaService.obtenerTodas());
@@ -55,5 +54,11 @@ public class EmpresaController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", "No se puede eliminar porque tiene datos vinculados."));
         }
+    }
+    
+    @GetMapping("/propietario/{terceroId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER')")
+    public ResponseEntity<List<Empresa>> listarPorPropietario(@PathVariable Long terceroId) {
+        return ResponseEntity.ok(empresaService.listarPorPropietario(terceroId));
     }
 }

@@ -15,6 +15,7 @@ public class LoginResponseDTO {
     private String nombreEmpresa;
     private List<String> roles;
     private List<String> permisos;
-    private List<String> programas; // Ej: ["INV", "TER"]
+    private List<String> programas; 
     private Long usuarioId;
+    private Long terceroId;
 }

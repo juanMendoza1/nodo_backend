@@ -11,7 +11,7 @@ import com.nodo.inv.core.repository.EmpresaRepository;
 import com.nodo.inv.core.repository.GiroNegocioRepository;
 import com.nodo.inv.core.repository.TerceroRepository;
 
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -80,4 +80,10 @@ public class EmpresaService {
     public void eliminarEmpresa(Long id) {
         empresaRepository.deleteById(id);
     }
+    
+    @Transactional(readOnly = true)
+    public List<Empresa> listarPorPropietario(Long terceroId) {
+        return empresaRepository.findByTerceroId(terceroId);
+    }
+    
 }
